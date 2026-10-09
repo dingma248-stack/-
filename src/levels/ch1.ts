@@ -265,7 +265,8 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
         await wait(3.4);
         ctx.ui.toast('打头。省子弹。');
         await say('陈屿', '（分局……老周今晚值班。）');
-        objective('前往西港分局（街道东北方向）', plaza);
+        // picked up late, after the bus / store / alley beats: keep their more precise route
+        if (!flag('ch1:blocked') && !flag('ch1:store') && !flag('ch1:runner')) objective('前往西港分局（街道东北方向）', plaza);
       })();
     }
   });

@@ -201,7 +201,9 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
     ctx.ui.toast('左键挥刀 · V 快速近战 · 也可以绕开它');
   });
   // dock reveal
+  let dockSeen = false;
   L.trigger(L.box(21, 7.5, 23, 10.5), () => {
+    dockSeen = true;
     objective('拉起卸货区卷帘门，离开商场', V(34.5, 0, 4.5));
   });
   L.safe(L.box(1, 1, 7, 7));
@@ -221,7 +223,8 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
       await say('陈屿', '老马？');
       s.camRelease();
     });
-    objective('前往卸货区', V(28, 0, 6));
+    // checked on the way back from the dock: keep the shutter objective (the reveal fires only once)
+    if (!dockSeen) objective('前往卸货区', V(28, 0, 6));
     ctx.director.musicEnabled = true;
   }
 
