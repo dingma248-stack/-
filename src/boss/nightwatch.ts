@@ -39,6 +39,7 @@ const SOLE = new THREE.Vector3(0, -0.475 * 1.32, 0.05 * 1.32);
 export class Nightwatch implements Hittable {
   readonly rig: Rig;
   readonly pos = new THREE.Vector3();
+  readonly radius = RADIUS;
   yaw = 0;
   readonly vel = new THREE.Vector3();
   private vy = 0;

@@ -16,6 +16,8 @@ export interface Hittable {
   damage(amount: number, part: Part, point: THREE.Vector3, dir: THREE.Vector3, knockback: number, weapon: WeaponId | 'blast' | 'boss'): HitResult;
   partPos(part: Part): THREE.Vector3;
   update?(dt: number): void;
+  /** footprint of a boss that walks the floor: other walkers keep out of it */
+  readonly radius?: number;
 }
 
 export class EnemyManager {
@@ -123,6 +125,8 @@ export class EnemyManager {
       d.z += (pz / d1) * (want - d1);
     };
     for (const o of this.list) if (o !== self && !o.dead && !o.onCeiling && o.state !== 'dormant') fit(o.pos.x, o.pos.y, o.pos.z, r + o.radius + 0.02);
+    // (the Nightwatch's sweep ignores enemies, so it is kept out here too, or the infected walk into it)
+    for (const b of this.bosses) if (b !== self && !b.dead && b.radius) fit(b.pos.x, b.pos.y, b.pos.z, r + b.radius + 0.02);
     const p = ctx.player;
     if (!p.dead) fit(p.pos.x, p.pos.y, p.pos.z, r + PLAYER.radius + 0.03);
   }
