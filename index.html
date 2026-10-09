@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>雾港·长夜 — Mistport: The Long Night</title>
+    <meta name="description" content="一款在浏览器里运行的复古低像素第一人称生化恐怖射击游戏。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23060708'/%3E%3Crect x='14' y='6' width='4' height='4' fill='%23b3261e' transform='rotate(45 16 8)'/%3E%3Cpath d='M8 26 L16 12 L24 26' stroke='%23e9e3d5' stroke-width='1.5' fill='none'/%3E%3C/svg%3E" />
+    <style>
+      html, body { background: #000; margin: 0; height: 100%; overflow: hidden; }
+      #nogl { display: none; position: fixed; inset: 0; color: #e9e3d5; font: 15px/2 serif; align-items: center; justify-content: center; text-align: center; letter-spacing: .2em; }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui"></div>
+    <div id="nogl">你的浏览器不支持 WebGL2。<br />请使用最新版 Chrome / Edge / Firefox。</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
