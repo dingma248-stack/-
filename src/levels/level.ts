@@ -114,6 +114,12 @@ export class Door {
   lockedMsg: string;
   broken = false;
   private wasOpen = false;
+  /**
+   * A leaf at rest is a fixed body, kinematic only while it swings: Rapier's character controller
+   * takes a touching kinematic body for a moving platform and cancels any move along its normal,
+   * so walking into a shut door pinned you to it (no stepping back, barely a hop).
+   */
+  private resting = false;
   readonly center: THREE.Vector3;
   readonly cells: [number, number][];
   interact: Interactable;
@@ -201,10 +207,15 @@ export class Door {
     return out.copy(this.hinge).addScaledVector(ax, this.width / 2).setY(this.hinge.y + this.height / 2);
   }
 
-  private syncBody() {
+  private syncBody(immediate = false) {
     const c = this.leafCenter();
     const yaw = this.kind === 'slide' ? this.baseYaw : this.baseYaw + this.angle * this.dir;
     const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    if (immediate) {
+      this.body.setTranslation({ x: c.x, y: c.y, z: c.z }, true);
+      this.body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
+      return;
+    }
     this.body.setNextKinematicTranslation({ x: c.x, y: c.y, z: c.z });
     this.body.setNextKinematicRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
   }
@@ -314,7 +325,19 @@ export class Door {
       const ax = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.baseYaw);
       this.pivot.position.copy(this.hinge).addScaledVector(ax, this.angle * this.width * 0.95);
     } else this.pivot.rotation.y = this.baseYaw + this.angle * this.dir;
-    this.syncBody();
+    const resting = Math.abs(this.vel) < 0.01 && Math.abs(this.target - this.angle) < 0.002;
+    if (resting !== this.resting) {
+      this.resting = resting;
+      this.body.setBodyType(resting ? RAPIER.RigidBodyType.Fixed : RAPIER.RigidBodyType.KinematicPositionBased, true);
+      if (resting) this.syncBody(true); // pin the final pose: a fixed body drops a pending kinematic target
+    }
+    if (!resting) this.syncBody();
+    // the [E] prompt needs a clear sight line to a point just short of interact.pos: on the leaf's
+    // centre plane that point lay inside the shut leaf when you stood against it, and the prompt
+    // vanished. Keep it a hand's width off the face on your side.
+    const p = ctx.player.pos;
+    const side = (this.alongX ? p.z - this.center.z : p.x - this.center.x) < 0 ? -0.1 : 0.1;
+    this.interact.pos.set(this.center.x + (this.alongX ? 0 : side), this.hinge.y + 1.1, this.center.z + (this.alongX ? side : 0));
     const open = this.angle > 0.05;
     if (this.wasOpen && !open && this.target === 0) {
       ctx.audio.play(this.kind === 'wood' ? 'doorSlam' : 'metalDoor', { pos: this.center, vol: 0.5 });
