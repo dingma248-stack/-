@@ -273,7 +273,8 @@ export class UI {
     this.panelHost.appendChild(p);
     this.menuNav = null;
     const esc = (e: KeyboardEvent) => {
-      if (e.code === 'Escape' && p.isConnected && !input.capture) {
+      // an Esc that cancelled a key rebind was used up by it (input's capture listener runs first and preventDefaults)
+      if (e.code === 'Escape' && p.isConnected && !input.capture && !e.defaultPrevented) {
         window.removeEventListener('keydown', esc);
         back();
       }
@@ -406,6 +407,14 @@ export class UI {
               if (code !== 'Escape' || a === 'pause') {
                 // swap if another action already uses this key
                 const other = (Object.keys(settings.bindings) as Action[]).find((x) => x !== a && settings.bindings[x] === code);
+                if (other && settings.bindings[a] === 'Escape') {
+                  // a swap would hand Esc to the other action, and only pause may use Esc (the browser
+                  // takes it to release the mouse, so no other action could ever see it)
+                  k.classList.add('wait');
+                  k.textContent = `已被「${ACTION_LABELS[other]}」占用`;
+                  setTimeout(render, 1400);
+                  return;
+                }
                 if (other) settings.bindings[other] = settings.bindings[a];
                 settings.bindings[a] = code;
                 saveSettings();
