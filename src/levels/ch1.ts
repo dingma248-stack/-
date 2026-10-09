@@ -394,7 +394,10 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
         })();
         if (o.fresh || true) ctx.game.checkpoint('start');
       } else {
-        objective(pistolPick?.taken ? '从后门进入后巷' : '检查那辆警车', pistolPick?.taken ? V(33.5, 0, 8.5) : V(9, 0, 26));
+        // L.pickup() returns null for a pickup taken before the save, so no pistolPick means we have it
+        const gotPistol = !pistolPick || pistolPick.taken;
+        if (flag('ch1:runner')) objective('前往西港分局', plaza);
+        else objective(gotPistol ? '从后门进入后巷' : '检查那辆警车', gotPistol ? V(33.5, 0, 8.5) : V(9, 0, 26));
       }
     },
   };
