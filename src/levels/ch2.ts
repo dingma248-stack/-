@@ -167,7 +167,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.tube(13, 34, { kind: 'buzz', intensity: 5 });
   L.pickup({ type: 'pouch' }, V(11.6, 0.05, 33), 'ch2:pouch');
   loot(L, 'medkit', 1, V(14.6, 0.05, 32.6), 'ch2:medkit');
-  loot(L, 'battery', 1, V(13.4, 0.5, 34.45), 'ch2:bat');
+  // at the bench's foot: on the seat it sat inside the bench's collision box (0.9 m tall, for the
+  // backrest), which blocks the [E] sight check
+  loot(L, 'battery', 1, V(13.4, 0.02, 35.0), 'ch2:bat');
 
   // ---------------- east wing ----------------
   L.tube(36, 29.5, { kind: 'buzz' });
@@ -178,7 +180,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.tube(36, 24, { kind: 'dying', intensity: 5 });
   L.tube(42, 26, { kind: 'flicker', intensity: 4 });
   L.place(P.papers(71, 20, 2), V(38, 0, 26.5), 0, { collide: false });
-  loot(L, 'shells', 4, V(41.2, 1.3, 21.5), 'ch2:shells1');
+  // on the edge facing the aisle: mid-shelf it sat inside the shelf's collision box (z 21.2-21.8),
+  // which blocks the [E] sight check
+  loot(L, 'shells', 4, V(41.2, 1.3, 21.77), 'ch2:shells1');
   // holding cells: bars + prisoners
   const bars = (x0: number, z: number, len: number) => {
     const g = new THREE.Group();
@@ -266,10 +270,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     zhou.face(ctx.player.pos);
     await wait(1);
     await say('老周', '整个分局就剩我一个了。其他人……要么跑了，要么变成外面那样。');
-    await say('老周', '地下停车场还有一辆巡逻车。钥匙你拿着。');
-    ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
-    ctx.audio.play('pickup', { bus: 'ui' });
-    ctx.ui.toast('获得 停车场钥匙');
+    // the key changes hands when he falls (stalkerEntrance): handed over here, it let you drive off
+    // without the armory, the shotgun or the stalker
+    await say('老周', '地下停车场还有一辆巡逻车，钥匙在我这儿。');
     await say('老周', '光靠那把手枪出不去。东边装备室有霰弹枪，门禁密码只有郑局知道。');
     await say('陈屿', '郑局呢？');
     await say('老周', '……在他办公室里。西边走廊尽头。小心点。');
@@ -353,7 +356,12 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       setFlag('ch2:zhouDead');
       ctx.player.shake = 1.2;
       await wait(1.2);
-      await say('老周', '（咳）……跑……去停车场……');
+      await say('老周', '（咳）……钥匙……跑……去停车场……');
+      if (!ctx.inventory.hasKey('garageKey')) {
+        ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
+        ctx.audio.play('pickup', { bus: 'ui' });
+        ctx.ui.toast('获得 停车场钥匙');
+      }
       await wait(0.4);
       nw!.yaw = Math.atan2(29.6 - 23.5, 29.6 - 31);
       await s.camTo(V(29.6, 1.75, 29.6), V(23.5, 2.2, 31), 0.5);
@@ -366,8 +374,10 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     nw!.pace = 0.95;
   }
 
-  // the stalker bursts through the wall behind you in the north corridor
-  L.trigger(L.box(28, 16.5, 34, 19), () => {
+  // the stalker bursts through the wall behind you as you enter the north corridor from the archive
+  // (x 28-34 was a dead end west of that door, off the route). Not a once-trigger: walking through
+  // here before the stalker shows up must not use it up
+  L.trigger(L.box(36, 16.5, 44, 19.3), () => {
     if (!nw || flag('ch2:wall')) return;
     setFlag('ch2:wall');
     void (async () => {
@@ -380,7 +390,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       ctx.director.scare('low');
       nw!.hunt();
     })();
-  });
+  }, false);
   // reaching the car
   L.trigger(L.box(2, -4, 8, 6, -4, 0), () => {
     if (flag('ch2:end')) return;
@@ -425,7 +435,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
         { name: 'radio', vol: 0.2, dist: [8, 14] },
       ];
       L.startAmbience();
-      if (!ctx.inventory.hasKey('garageKey') && (cp !== 'start' || flag('ch2:intro'))) ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
+      if (!ctx.inventory.hasKey('garageKey') && flag('ch2:stalker')) ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
       if (cp === 'start' && !flag('ch2:intro')) {
         setFlag('ch2:intro');
         void intro();
@@ -438,9 +448,18 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
         zhou?.teleport(V(22.2, 0, 31.5));
       }
       if (flag('ch2:stalker')) {
-        // restarting during the chase: the stalker is already hunting
-        nw = new Nightwatch(V(23.5, 0, 31), 0, 1);
-        nw.hunt();
+        // restarting during the chase: the stalker is already hunting — but after a save in the
+        // duty room it waits until you step out, instead of walking up to that room's only door and
+        // camping in it. It starts at the lobby's west end, behind the run east to the archive
+        // (from the front entrance it cut that run off)
+        const n = (nw = new Nightwatch(V(18.2, 0, 31.5), 2.5, 1));
+        let held = L.inSafeZone(ctx.player.pos);
+        if (!held) n.hunt();
+        L.onUpdate(() => {
+          if (!held || L.inSafeZone(ctx.player.pos)) return;
+          held = false;
+          if (n.state === 'idle') n.hunt();
+        });
         setFlag('ch2:wall', false);
         objective('逃往地下停车场（东侧档案室 → 北走廊）', V(44.5, 0, 17.5));
       }

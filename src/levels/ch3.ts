@@ -150,8 +150,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.shelf(4, 2, 0.45, 13), V(30.5, 0, 33.4), 0);
   L.place(P.shelf(4, 2, 0.45, 14), V(30.5, 0, 37.6), Math.PI);
   T(30.5, 35.5, 'buzz', 5);
-  loot(L, 'medkit', 1, V(29.5, 1.2, 33.4), 'ch3:med');
-  loot(L, 'bandage', 2, V(31.8, 0.8, 37.6), 'ch3:band');
+  // on the edges facing the aisle between the shelves: mid-shelf they sat inside the shelves'
+  // collision boxes, which block the [E] sight check
+  loot(L, 'medkit', 1, V(29.5, 1.2, 33.59), 'ch3:med');
+  loot(L, 'bandage', 2, V(31.8, 0.8, 37.4), 'ch3:band');
   loot(L, 'shells', 4, V(32.5, 0.05, 35.5), 'ch3:sh1');
   // security office: keycard for the basement fire door
   L.place(P.monitorDesk(2), V(30.5, 0, 26.6), 0, { keep: true });
@@ -194,6 +196,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.cart(), V(36.5, 0, 16.6), 0.4);
   T(37, 14.5, 'buzz', 6);
   savePoint(L, V(39.4, 0, 16.8), -Math.PI / 2, 'iso');
+  // Lin's .357 rounds (dropped in meetLin, which doesn't run again after a reload from 'iso' on)
+  if (flag('ch3:lin')) loot(L, 'ammo357', 4, V(36.2, 0.79, 13.4), 'ch3:mag');
   L.safe(L.box(34, 12, 41, 18));
   L.pickup(
     {
@@ -210,6 +214,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
 
   // ---------------- basement passage & subway ----------------
   const fire = L.doorsAt('F', { kind: 'metal', locked: 'b1card', msg: '防火门 · 需要门禁卡' })[0];
+  // stays shut until Lin has been found (meetLin hands it back to the card), so the rescue can't be skipped
+  if (!flag('ch3:lin')) fire.lock('ch3:findLin', '（电台里那个女人还在隔离病房——不能丢下她。）');
   L.light(V(8.5, 2.2, 21.4), 0x40ff60, 2, 4, 'steady');
   L.light(V(8.5, -2.5, 32), 0xffd090, 4, 7, 'flicker');
   L.light(V(8.5, -2.4, 37.5), 0xffd090, 4, 7, 'dying');
@@ -279,7 +285,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     if (powerCd > 0) return;
     powerT = 2.6;
     powerCd = 7;
-    handle.rotation.x = -1.2;
+    // pulled out towards the platform: now that the box faces it, -1.2 swung the handle into the wall
+    handle.rotation.x = 1.2;
     ctx.audio.play('lever', { pos: V(39, -3, 50), vol: 1 });
     ctx.audio.play('zap', { pos: V(30, -5, 55.5), vol: 1 });
   });
@@ -326,6 +333,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     if (flag('ch3:lin')) return;
     setFlag('ch3:lin');
     iso.enabled = false;
+    if (fire.locked === 'ch3:findLin') fire.lock('b1card', '防火门 · 需要门禁卡');
     ctx.audio.play('doorLocked', { pos: V(37.5, 1, 18), vol: 1 });
     await say('？？？', '……别进来！你被咬过吗？！');
     await say('陈屿', '没有。我是警察——以前是。');
@@ -495,7 +503,6 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     })();
   }, false);
   void until;
-  void fire;
 
   const spawns: Record<string, { pos: THREE.Vector3; yaw: number }> = {
     start: { pos: V(24.5, 0, 43.4), yaw: 0 },
@@ -520,7 +527,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
       if (flag('ch3:sub')) {
         L.env.reverb = 'hall';
         ctx.audio.setReverb('hall');
+        L.mapTitle = '地铁三号线 · 港湾站';
       }
+      // the chapter's place2 (shown by beginPlay) is the subway; the hospital comes first
+      ctx.ui.setLocation(L.mapTitle);
       if (cp === 'start') {
         objective('寻找求救的人（四楼隔离病房 · 北侧）', V(37.5, 0, 19));
         void (async () => {

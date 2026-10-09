@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Level } from './level';
 import { P } from './props';
 import { ctx } from '../core/ctx';
-import { V, enemy, loot, say, wait, objective, radio, flag, setFlag, compose, corpse, savePoint, ensureLoadout, type BuildOpts, type ChapterRun } from './kit';
+import { V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, compose, corpse, savePoint, ensureLoadout, type BuildOpts, type ChapterRun } from './kit';
 import { NPC } from '../story/npc';
 import { stdMat } from '../render/materials';
 import { rand } from '../core/math';
@@ -176,7 +176,9 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   L.tube(38, 15, { kind: 'dying', intensity: 6 });
   L.tube(39.5, 11.2, { kind: 'flicker', intensity: 4, len: 1 });
   loot(L, 'ammo9', 12, V(32.5, 1.25, 14.3), 'ch1:ammo2');
-  loot(L, 'bandage', 1, V(35.5, 0.95, 12.2), 'ch1:band1');
+  // at the edge facing the west aisle: mid-shelf it sat inside the shelf's collision box (x 35.2-35.8),
+  // which blocks the [E] sight check
+  loot(L, 'bandage', 1, V(35.22, 0.95, 12.2), 'ch1:band1');
   loot(L, 'battery', 1, V(39.2, 1.1, 15.2), 'ch1:bat1');
   L.place(P.desk(1.4, 0.7), V(40.4, 0, 10.6), Math.PI);
   savePoint(L, V(38.6, 0, 12.3), Math.PI / 2, 'store');
@@ -263,7 +265,8 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
         await wait(3.4);
         ctx.ui.toast('打头。省子弹。');
         await say('陈屿', '（分局……老周今晚值班。）');
-        objective('前往西港分局（街道东北方向）', plaza);
+        // picked up late, after the bus / store / alley beats: keep their more precise route
+        if (!flag('ch1:blocked') && !flag('ch1:store') && !flag('ch1:runner')) objective('前往西港分局（街道东北方向）', plaza);
       })();
     }
   });
@@ -338,24 +341,45 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   });
 
   async function endScene() {
-    const zhou = new NPC(V(50.5, 0.12, -0.4), 0, 'zhou');
+    // just in front of the gate (z 1.2): at z -0.4 he stood inside the facade wall, unseen
+    const zhou = new NPC(V(50.5, 0.12, 1.8), 0, 'zhou');
     zhou.pose = 'aim';
-    // a runner charges from the east as the gate opens
+    // a runner charges from the east as the gate opens; Zhou has it in his sights from the start
     const r = enemy('runner', V(57, 0.12, 2.5), { state: 'chase', yaw: -Math.PI / 2 });
+    if (r) zhou.face(r.pos);
     await ctx.story.cutscene(async () => {
       const s = ctx.story;
-      await s.camTo(V(50.5, 1.7, 5.5), V(50.5, 1.4, 0), 1.2);
-      await say('老周', '陈屿？！是你吗？别傻站着——快进来！');
-      // Zhou covers the plaza
+      let framed = false;
+      const cam = s.camTo(V(50.5, 1.7, 5.5), V(50.5, 1.4, 0), 1.2).then(() => void (framed = true));
+      // he fires once the camera is on him, or sooner if the runner gets within pouncing range of you,
+      // and shouts as he shoots: the cutscene holds you still, and holding fire until his line was over
+      // let it bite you (36 HP, or kill you outright)
+      await until(() => framed || !r || r.dead || r.pos.distanceTo(ctx.player.pos) < 4.6);
+      const shout = cam.then(() => say('老周', '陈屿？！是你吗？别傻站着——快进来！'));
+      // Zhou covers the plaza, turning to each target now that he can be seen
       for (const e of [r, ...ctx.enemies.alive.filter((x) => x.pos.distanceTo(V(50.5, 0, 3)) < 14)]) {
         if (!e || e.dead) continue;
-        ctx.audio.play('pistol', { pos: V(50.5, 1.4, 0), vol: 1 });
-        ctx.particles.muzzle(V(50.7, 1.4, 0.2), e.headPos().sub(V(50.7, 1.4, 0.2)).normalize());
-        e.damage(999, 'head', e.headPos(), e.headPos().sub(V(50.5, 1.4, 0)).normalize(), 1, 'pistol');
+        zhou.face(e.pos);
+        if (e !== r) await wait(0.35);
+        const muzzle = zhou.gun ? zhou.gun.getWorldPosition(new THREE.Vector3()) : V(50.5, 1.4, 2.2);
+        ctx.audio.play('pistol', { pos: muzzle, vol: 1 });
+        ctx.particles.muzzle(muzzle, e.headPos().sub(muzzle).normalize());
+        e.damage(999, 'head', e.headPos(), e.headPos().sub(muzzle).normalize(), 1, 'pistol');
         await wait(0.45);
       }
+      await shout;
+      zhou.face(ctx.player.pos);
       await wait(0.8);
       await say('老周', '……一枪爆头。你小子还没忘本事。');
+      // the M19 by the police car is the only pistol before the last chapter: walking past it
+      // must not send you into the station with just the knife
+      if (!ctx.weapons.owned.includes('pistol')) {
+        ctx.weapons.give('pistol', 12);
+        ctx.inventory.add('ammo9', 12);
+        ctx.ui.weaponGet('pistol');
+        ctx.audio.play('pickup', { bus: 'ui' });
+        await say('老周', '空着手就敢在街上走？拿着，我的备用枪。');
+      }
       await wait(0.6);
       s.camRelease();
     });
@@ -392,7 +416,10 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
         })();
         if (o.fresh || true) ctx.game.checkpoint('start');
       } else {
-        objective(pistolPick?.taken ? '从后门进入后巷' : '检查那辆警车', pistolPick?.taken ? V(33.5, 0, 8.5) : V(9, 0, 26));
+        // L.pickup() returns null for a pickup taken before the save, so no pistolPick means we have it
+        const gotPistol = !pistolPick || pistolPick.taken;
+        if (flag('ch1:runner')) objective('前往西港分局', plaza);
+        else objective(gotPistol ? '从后门进入后巷' : '检查那辆警车', gotPistol ? V(33.5, 0, 8.5) : V(9, 0, 26));
       }
     },
   };

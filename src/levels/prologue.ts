@@ -107,7 +107,9 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.shelf(1.8, 2.2, 0.5, 9), V(13.1, 0, 12.6), -Math.PI / 2);
   for (const [x, z] of [[6, 12.2], [6.2, 13.3], [7.3, 13.35]] as [number, number][]) L.place(P.crate(0.7), V(x, 0, z), Math.random(), { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood' } } });
   L.tube(9, 12.5, { kind: 'flicker', intensity: 4 });
-  loot(L, 'bandage', 1, V(6.55, 1.2, 11.3), 'pro:bandage');
+  // on the front edge of the boards: deeper in, they sat inside the shelf's collision box, which
+  // blocks the [E] sight check (the shelf's front face is at z 11.55)
+  loot(L, 'bandage', 1, V(6.55, 1.2, 11.51), 'pro:bandage');
   loot(L, 'battery', 1, V(11.6, 0.02, 13.5), 'pro:battery');
   L.pickup(
     {
@@ -118,7 +120,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
         body: '10月9日 夜班交接\n\n1. 卸货区卷帘门遥控失灵，需手动拉起。\n2. 21:50 老马说去卸货区抽根烟。\n3. 广播通知：市区多处出现「狂犬病样」伤人事件，\n   商场提前闭店，请值班人员锁好各出入口。\n4. 监控 CAM 03 画面偶尔雪花，已报修。\n\n——小郑\n\n（字迹潦草的补充）\n老马被咬了一口，说没事。他一直在出汗。',
       },
     },
-    V(7.1, 0.62, 11.3),
+    V(7.1, 0.62, 11.5),
     'pro:doc1',
   );
 
@@ -199,7 +201,9 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
     ctx.ui.toast('左键挥刀 · V 快速近战 · 也可以绕开它');
   });
   // dock reveal
+  let dockSeen = false;
   L.trigger(L.box(21, 7.5, 23, 10.5), () => {
+    dockSeen = true;
     objective('拉起卸货区卷帘门，离开商场', V(34.5, 0, 4.5));
   });
   L.safe(L.box(1, 1, 7, 7));
@@ -219,7 +223,8 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
       await say('陈屿', '老马？');
       s.camRelease();
     });
-    objective('前往卸货区', V(28, 0, 6));
+    // checked on the way back from the dock: keep the shutter objective (the reveal fires only once)
+    if (!dockSeen) objective('前往卸货区', V(28, 0, 6));
     ctx.director.musicEnabled = true;
   }
 
