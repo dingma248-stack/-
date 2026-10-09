@@ -10,6 +10,8 @@ import { TEX } from '../render/textures';
 import type { Enemy } from '../enemies/enemy';
 
 const UP = new THREE.Vector3(0, 1, 0);
+/** stride (m) a blocked grounded move is retried with, so autostep carries the capsule up a stair riser */
+const STEP_PROBE = 0.22;
 
 export class Player {
   body!: RAPIER.RigidBody;
@@ -261,10 +263,29 @@ export class Player {
     if (this.grounded && this.vel.y < 0) this.vel.y = -2;
     // ---- move ----
     const desired = { x: this.vel.x * h, y: this.vel.y * h, z: this.vel.z * h };
-    this.kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, groups(0xffff, G.STATIC | G.PROP | G.ENEMY));
-    const mv = this.kcc.computedMovement();
+    const filter = groups(0xffff, G.STATIC | G.PROP | G.ENEMY);
+    this.kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, filter);
+    let mv = this.kcc.computedMovement();
+    let grounded = this.kcc.computedGrounded();
+    // Rapier's autostep only nudges the capsule as far onto a step as this tick's stride: at walking
+    // pace (5.5 cm per 60 Hz step, less crouched, aiming or winded) its round bottom stays on the
+    // lip of a 30 cm riser and every further step is blocked there. Blocked on the ground → retry
+    // with a longer stride, and take that only if it rose onto a step (autostep found level ground
+    // there; ending a few cm above it, to settle next tick, still counts).
+    const dh = Math.hypot(desired.x, desired.z);
+    if (this.grounded && dh > 1e-4 && Math.hypot(mv.x, mv.z) < dh * 0.6) {
+      const k = Math.max(1, STEP_PROBE / dh);
+      this.kcc.setApplyImpulsesToDynamicBodies(false); // the probe mustn't shove props a second time
+      this.kcc.computeColliderMovement(this.collider, { x: desired.x * k, y: desired.y, z: desired.z * k }, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, filter);
+      this.kcc.setApplyImpulsesToDynamicBodies(true);
+      const up = this.kcc.computedMovement();
+      if (up.y > 0.05 && Math.hypot(up.x, up.z) > Math.hypot(mv.x, mv.z)) {
+        mv = up;
+        grounded = true;
+      }
+    }
     const wasGrounded = this.grounded;
-    this.grounded = this.kcc.computedGrounded();
+    this.grounded = grounded;
     const t = this.body.translation();
     const nx = t.x + mv.x, ny = t.y + mv.y, nz = t.z + mv.z;
     this.body.setNextKinematicTranslation({ x: nx, y: ny, z: nz });

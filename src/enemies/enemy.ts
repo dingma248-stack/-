@@ -33,6 +33,8 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+/** stride (m) a blocked step is retried with so autostep gets the capsule up a stair riser (see move()) */
+const STEP_PROBE = 0.22;
 // limb-end points (local to the shin / forearm) handed to plant()
 const _sole = new THREE.Vector3();
 const _hand = new THREE.Vector3();
@@ -895,9 +897,28 @@ export class Enemy {
       y: (q ? q.y - t.y : 0) + this.vy * dt,
       z: (q ? q.z - t.z : 0) + step.z,
     };
-    kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, groups(0xffff, G.STATIC | G.PROP));
-    const mv = kcc.computedMovement();
-    this.grounded = kcc.computedGrounded();
+    const filter = groups(0xffff, G.STATIC | G.PROP);
+    kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, filter);
+    let mv = kcc.computedMovement();
+    let grounded = kcc.computedGrounded();
+    // stair risers, as for the player: a shuffling infected's 1-5 cm per frame never carries its round
+    // bottom up onto a 30 cm step, so a blocked step is retried with a longer stride (kept out of the
+    // others like the real one) and taken only if it rose onto the step
+    const sh = Math.hypot(step.x, step.z);
+    if (this.grounded && sh > 1e-4 && Math.hypot(mv.x, mv.z) < Math.hypot(desired.x, desired.z) * 0.6) {
+      const k = Math.max(1, STEP_PROBE / sh);
+      const s = { x: step.x * k, z: step.z * k };
+      ctx.enemies.keepApart(this, this.pos, this.radius, s, dt);
+      kcc.setApplyImpulsesToDynamicBodies(false);
+      kcc.computeColliderMovement(this.collider, { x: desired.x - step.x + s.x, y: desired.y, z: desired.z - step.z + s.z }, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, filter);
+      kcc.setApplyImpulsesToDynamicBodies(true);
+      const up = kcc.computedMovement();
+      if (up.y > 0.05 && Math.hypot(up.x, up.z) > Math.hypot(mv.x, mv.z)) {
+        mv = up;
+        grounded = true;
+      }
+    }
+    this.grounded = grounded;
     const n = { x: t.x + mv.x, y: t.y + mv.y, z: t.z + mv.z };
     this.body.setNextKinematicTranslation(n);
     this.bodyNext = n;
