@@ -506,9 +506,10 @@ export class Enemy {
           this.flank = damp(this.flank, this.flankSign * 0.9, 2.5, dt);
           const ang = Math.atan2(this.pos.x - p.pos.x, this.pos.z - p.pos.z) + this.flank;
           const side = p.pos.clone().add(new THREE.Vector3(Math.sin(ang) * 2.4, 0, Math.cos(ang) * 2.4));
-          // a flank point inside a wall would have it run into the wall and scrabble there
+          // aim for the middle of a walkable cell: a flank point in or against a wall had it
+          // run into the wall and scrabble there
           const [fx, fz] = ctx.level!.nav.cellOf(side);
-          if (ctx.level!.nav.ok(fx, fz)) tgt = side;
+          if (ctx.level!.nav.ok(fx, fz)) tgt = ctx.level!.nav.center(fx, fz);
           if (Math.random() < dt * 0.15) this.flankSign *= -1;
         }
         this.repathT -= dt;
@@ -735,7 +736,7 @@ export class Enemy {
         this.repathT = 0;
         this.stuckT = 0;
         this.unstickT = 0.6;
-        this.unstickSign = Math.random() < 0.5 ? -1 : 1;
+        this.unstickSign = this.roomierSide();
       }
     }
     this.lastPos.copy(this.pos);
@@ -834,6 +835,17 @@ export class Enemy {
       this.reachMax = crawler ? clamp((near - 0.35) / 0.4, 0, 1) : clamp((near - 0.3) / 0.55, 0, 1);
     }
     this.reach = damp(this.reach, this.reachMax, 10, dt);
+  }
+
+  /** -1 / 1: which way off the current heading has more room (to sidestep out of a wedge). */
+  private roomierSide() {
+    const room = [-1, 1].map((k) => {
+      const h = this.yaw + k * 1.1;
+      _a.set(this.pos.x, this.pos.y + 0.3, this.pos.z);
+      return ctx.physics.raycast(_a, _b.set(Math.sin(h), 0, Math.cos(h)), 1.5)?.dist ?? 1.5;
+    });
+    if (Math.abs(room[0] - room[1]) < 0.1) return Math.random() < 0.5 ? -1 : 1;
+    return room[0] > room[1] ? -1 : 1;
   }
 
   /** Knocked aside by something big (the Nightwatch wading through a crowd). */
