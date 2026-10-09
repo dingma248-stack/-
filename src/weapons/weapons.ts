@@ -564,8 +564,7 @@ export class Weapons {
       if (eh) {
         explodeAt = g.pos.clone().addScaledVector(dir, eh.dist);
         ctx.game.stats.hits++; // a direct hit; splash-only kills don't count toward accuracy
-      }
-      else if (hit) {
+      } else if (hit) {
         if (g.age > GRENADE.fuseMin) explodeAt = hit.point.clone().addScaledVector(hit.normal, 0.15);
         else {
           // too close: dud bounce
