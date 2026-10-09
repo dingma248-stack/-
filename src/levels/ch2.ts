@@ -449,9 +449,10 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       }
       if (flag('ch2:stalker')) {
         // restarting during the chase: the stalker is already hunting — but after a save in the
-        // duty room it waits by the broken entrance until you step out, instead of walking up to
-        // that room's only door and camping in it
-        const n = (nw = new Nightwatch(V(23.5, 0, 34), Math.PI, 1));
+        // duty room it waits until you step out, instead of walking up to that room's only door and
+        // camping in it. It starts at the lobby's west end, behind the run east to the archive
+        // (from the front entrance it cut that run off)
+        const n = (nw = new Nightwatch(V(18.2, 0, 31.5), 2.5, 1));
         let held = L.inSafeZone(ctx.player.pos);
         if (!held) n.hunt();
         L.onUpdate(() => {
