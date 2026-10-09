@@ -233,12 +233,22 @@ export class Door {
     else this.open(ctx.player.pos);
   }
 
+  /** Swing direction that opens the leaf away from `p`. */
+  awayFrom(p: THREE.Vector3) {
+    return this.alongX ? (p.z > this.hinge.z ? 1 : -1) : p.x > this.hinge.x ? -1 : 1;
+  }
+
+  /** True when the open leaf, swinging shut, moves away from `p` rather than sweeping into it. */
+  closesAwayFrom(p: THREE.Vector3) {
+    const yaw = this.baseYaw + this.angle * this.dir;
+    return ((p.x - this.hinge.x) * Math.sin(yaw) + (p.z - this.hinge.z) * Math.cos(yaw)) * this.dir < 0;
+  }
+
   open(from?: THREE.Vector3, fast = false) {
     if (this.locked || this.broken || this.target > 0) return;
-    if (from && this.kind !== 'slide') {
-      if (this.alongX) this.dir = from.z > this.hinge.z ? 1 : -1;
-      else this.dir = from.x > this.hinge.x ? -1 : 1;
-    }
+    // the side is only picked from shut: flipping it while the leaf still stood open teleported
+    // the leaf (and its collider) to the other side in one frame
+    if (from && this.kind !== 'slide' && this.angle < 0.05) this.dir = this.awayFrom(from);
     this.target = this.kind === 'slide' ? 1 : Door.OPEN;
     if (fast) this.vel = this.dir * 8;
     ctx.audio.play(this.kind === 'slide' ? 'pneumatic' : this.kind === 'wood' ? 'doorOpen' : 'metalDoor', { pos: this.center, vol: this.kind === 'wood' ? 0.8 : 0.6 });

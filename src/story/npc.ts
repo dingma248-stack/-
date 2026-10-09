@@ -1,12 +1,19 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
-import { humanoid, type Rig } from '../enemies/rig';
+import { humanoid, plant, type Rig } from '../enemies/rig';
 import { Ragdoll } from '../physics/ragdoll';
+import { RAPIER, groups, G } from '../physics/world';
 import { angleDiff, clamp, damp } from '../core/math';
+import { PLAYER } from '../config';
 import { stdMat } from '../render/materials';
 import { bx } from '../levels/props';
 
 export type NpcPose = 'idle' | 'walk' | 'run' | 'aim' | 'wave' | 'sit' | 'hurt' | 'crouch';
+
+const RADIUS = 0.3;
+const HALF = 0.45;
+const _d = new THREE.Vector3();
+const _c = new THREE.Vector3();
 
 /** Scripted story character (Zhou, Lin Wei). No AI — scripts drive it. */
 export class NPC {
@@ -25,6 +32,18 @@ export class NPC {
   /** loosely follow the player */
   following = false;
   private followT = 0;
+  /**
+   * Swept against walls, props and the player so the body never passes through them. It belongs
+   * to no collision group, so nothing else (player, bullets, enemies) ever touches it.
+   */
+  private collider: RAPIER.Collider | null = null;
+  private world: RAPIER.World;
+  private yawVel = 0;
+  private gait = 0;
+  private curSpeed = 0;
+  private stuckT = 0;
+  /** after being wedged for a moment it walks through, so a script can never stall on it */
+  private ghostT = 0;
 
   constructor(pos: THREE.Vector3, yaw: number, kind: 'zhou' | 'lin' | 'pilot') {
     if (kind === 'zhou') {
@@ -62,6 +81,8 @@ export class NPC {
     }
     this.pos.copy(pos);
     this.yaw = yaw;
+    this.world = ctx.physics.world;
+    this.collider = this.world.createCollider(RAPIER.ColliderDesc.capsule(HALF, RADIUS).setTranslation(pos.x, pos.y + HALF + RADIUS + 0.06, pos.z).setCollisionGroups(groups(0, 0)));
     ctx.level!.group.add(this.rig.root);
     this.sync(0);
     ctx.level!.onUpdate((dt) => this.update(dt));
@@ -82,8 +103,43 @@ export class NPC {
 
   teleport(p: THREE.Vector3, yaw?: number) {
     this.pos.copy(p);
-    if (yaw !== undefined) this.yaw = yaw;
+    if (yaw !== undefined) {
+      this.yaw = yaw;
+      this.yawVel = 0;
+    }
     this.path = [];
+    this.gait = 0;
+  }
+
+  /** Step along the ground, sliding on walls / props / the player instead of passing through. */
+  private moveBy(step: THREE.Vector3, dt: number) {
+    this.ghostT -= dt;
+    const c = this.collider;
+    if (!c || this.ghostT > 0 || this.world !== ctx.physics.world) {
+      this.pos.add(step);
+      return;
+    }
+    c.setTranslation({ x: this.pos.x, y: this.pos.y + HALF + RADIUS + 0.06, z: this.pos.z });
+    // walk around the player (as a circle: autostep would climb the round bottom of their capsule)
+    const p = ctx.player.pos;
+    const rr = RADIUS + PLAYER.radius + 0.05;
+    const px = this.pos.x + step.x - p.x, pz = this.pos.z + step.z - p.z, d1 = Math.hypot(px, pz);
+    if (d1 < rr && d1 > 1e-4 && Math.abs(p.y - this.pos.y) < 1.5 && Math.hypot(this.pos.x - p.x, this.pos.z - p.z) >= d1) {
+      step.x += (px / d1) * (rr - d1);
+      step.z += (pz / d1) * (rr - d1);
+    }
+    const kcc = ctx.enemies.kcc;
+    kcc.computeColliderMovement(c, { x: step.x, y: 0, z: step.z }, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, groups(0xffff, G.STATIC | G.PROP));
+    const mv = kcc.computedMovement();
+    this.pos.x += mv.x;
+    this.pos.z += mv.z;
+    const want = Math.hypot(step.x, step.z), got = Math.hypot(mv.x, mv.z);
+    if (got < want * 0.3) this.stuckT += dt;
+    else this.stuckT = Math.max(0, this.stuckT - dt);
+    if (this.stuckT > 0.8) {
+      this.stuckT = 0;
+      this.ghostT = 1.2;
+    }
   }
 
   face(p: THREE.Vector3 | null) {
@@ -110,16 +166,20 @@ export class NPC {
           }
         }
       }
+      // ease off when catching up instead of stopping dead from a run
+      if (this.path.length && d < 3.2) this.speed = Math.min(this.speed, 1.2);
       if (d < 2.2 && this.path.length) {
         this.path = [];
         this.pose = 'idle';
       }
     }
+    const wx = this.pos.x, wz = this.pos.z;
+    let want: number | null = null;
     if (this.path.length) {
       const wp = this.path[0];
-      const d = new THREE.Vector3(wp.x - this.pos.x, 0, wp.z - this.pos.z);
+      const d = _d.set(wp.x - this.pos.x, 0, wp.z - this.pos.z);
       const len = d.length();
-      if (len < 0.15) {
+      if (len < 0.15 || (this.ghostT <= 0 && this.stuckT > 0.4 && len < 0.6)) {
         this.path.shift();
         if (!this.path.length) {
           this.pose = 'idle';
@@ -128,16 +188,27 @@ export class NPC {
           r?.();
         }
       } else {
-        const want = Math.atan2(d.x, d.z);
-        this.yaw += clamp(angleDiff(this.yaw, want), -6 * dt, 6 * dt);
-        const step = Math.min(len, this.speed * dt);
-        this.pos.addScaledVector(d.normalize(), step);
+        // face a little way down the path so corners turn early and smoothly
+        const nx = this.path[1];
+        const ahead = nx && len < 0.8 ? _c.set(wp.x + (nx.x - wp.x) * (0.8 - len) * 0.5, 0, wp.z + (nx.z - wp.z) * (0.8 - len) * 0.5) : wp;
+        want = Math.atan2(ahead.x - this.pos.x, ahead.z - this.pos.z);
+        // swing shut doors open on the way (they collide now)
+        for (const door of ctx.level!.doors)
+          if (door.target === 0 && door.angle < 0.05 && !door.locked && !door.broken && Math.hypot(door.center.x - this.pos.x, door.center.z - this.pos.z) < 1.3) door.open(this.pos);
+        this.curSpeed = damp(this.curSpeed, this.speed, 5, dt);
+        this.moveBy(d.normalize().multiplyScalar(Math.min(len, this.curSpeed * dt)), dt);
         this.pos.y = damp(this.pos.y, ctx.level!.nav.heightAt(this.pos), 12, dt);
       }
-    } else if (this.lookAt) {
-      const want = Math.atan2(this.lookAt.x - this.pos.x, this.lookAt.z - this.pos.z);
-      this.yaw += clamp(angleDiff(this.yaw, want), -4 * dt, 4 * dt);
+    } else {
+      this.curSpeed = 0;
+      if (this.lookAt) want = Math.atan2(this.lookAt.x - this.pos.x, this.lookAt.z - this.pos.z);
     }
+    // eased turning: no constant-rate pivots
+    const target = want === null ? 0 : clamp(angleDiff(this.yaw, want) * 5, -5, 5);
+    this.yawVel = damp(this.yawVel, target, 12, dt);
+    this.yaw += this.yawVel * dt;
+    const moved = Math.hypot(this.pos.x - wx, this.pos.z - wz);
+    this.gait = damp(this.gait, Math.min(moved / Math.max(dt, 1e-4), 8), 10, dt);
     this.sync(dt);
   }
 
@@ -146,10 +217,12 @@ export class NPC {
     const S = r.segs;
     r.root.position.copy(this.pos);
     r.root.rotation.set(0, this.yaw, 0);
+    // the legs follow the ground really covered (slowing when blocked, never skating)
     const moving = this.pose === 'walk' || this.pose === 'run';
-    const run = this.pose === 'run';
-    this.phase += dt * (moving ? (run ? 9 : 5.2) : 0);
-    const amp = moving ? (run ? 0.8 : 0.42) : 0;
+    const run = this.pose === 'run' && this.gait > 2;
+    const v = moving ? this.gait : 0;
+    this.phase += dt * (run ? 1.65 * Math.max(v, 3.5) : 3.1 * Math.max(v, 1.15)) * clamp(v * 2, 0, 1);
+    const amp = run ? 0.8 * clamp(v / 3.5, 0, 1) : 0.42 * clamp(v / 1.2, 0, 1);
     const sw = Math.sin(this.phase) * amp;
     const t = ctx.time;
     S.legL.pivot.rotation.set(sw, 0, 0);
@@ -218,11 +291,17 @@ export class NPC {
       hy = clamp(angleDiff(this.yaw, want), -0.9, 0.9);
     }
     S.head.pivot.rotation.set(-lean * 0.4 + Math.sin(t * 0.6) * 0.03, hy, 0);
+    if (this.pose !== 'sit' && this.pose !== 'crouch') {
+      const sc = r.height / 1.8;
+      const sole = _d.set(0, -0.475 * sc, 0.05 * sc);
+      plant(r, [[S.legL.joint!, sole], [S.legR.joint!, sole]], this.pos.y + 0.01, -0.3, 0.03);
+    }
   }
 
   die(dir: THREE.Vector3, impulse = 18) {
     if (this.dead) return;
     this.dead = true;
+    this.dropCollider();
     this.ragdoll = new Ragdoll(this.rig, ['torso', 'head', 'armL', 'armR', 'legL', 'legR'], new THREE.Vector3(), {
       point: this.pos.clone().add(new THREE.Vector3(0, 1.3, 0)),
       dir,
@@ -236,5 +315,12 @@ export class NPC {
     this.ragdoll?.dispose();
     this.rig.root.removeFromParent();
     this.dead = true;
+    this.dropCollider();
+  }
+
+  private dropCollider() {
+    // a collider from a previous level's (freed) world must not be touched
+    if (this.collider && this.world === ctx.physics.world && this.collider.isValid()) this.world.removeCollider(this.collider, false);
+    this.collider = null;
   }
 }
