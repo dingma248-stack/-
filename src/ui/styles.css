@@ -278,7 +278,7 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
   transition: border-color 0.25s, background 0.25s, transform 0.35s var(--ease);
   min-height: 150px;
 }
-.card:hover { border-color: rgba(233, 227, 213, 0.4); background: rgba(233, 227, 213, 0.03); transform: translateY(-2px); }
+.card:hover, .card.focus { border-color: rgba(233, 227, 213, 0.4); background: rgba(233, 227, 213, 0.03); transform: translateY(-2px); }
 .card .no { font-family: var(--mono); font-size: 11px; letter-spacing: 0.3em; color: var(--red); }
 .card .nm { font-size: 22px; letter-spacing: 0.2em; margin-top: 14px; }
 .card .ds { font-family: var(--latin); font-style: italic; font-size: 15px; color: var(--bone-faint); margin-top: 8px; letter-spacing: 0.06em; }

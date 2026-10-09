@@ -305,6 +305,12 @@ export class UI {
       cards.appendChild(c);
     });
     p.appendChild(cards);
+    this.navCards(cards);
+  }
+
+  /** Arrow keys + Enter over a panel's cards (panel() itself only handles Esc). */
+  private navCards(cards: HTMLElement) {
+    this.menuNav = { items: [...cards.querySelectorAll<HTMLElement>('.card:not(.locked)')], idx: -1 };
   }
 
   private showChapters() {
@@ -325,6 +331,7 @@ export class UI {
       cards.appendChild(el);
     });
     p.appendChild(cards);
+    this.navCards(cards);
   }
 
   private showGallery() {
