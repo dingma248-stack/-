@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
-import type { Level, MapDef } from './level';
+import type { CellDef, Level, MapDef } from './level';
 import type { EnemyKind, SpawnOpts, Enemy } from '../enemies/enemy';
 import { P, bx } from './props';
 import { stdMat, M, surface } from '../render/materials';
@@ -125,6 +125,16 @@ export const objective = (t: string, pos?: THREE.Vector3) => {
  * Compose an ASCII map by carving rectangles: [char, x0, z0, x1, z1] (inclusive).
  * Single cells can be given as [char, x, z].
  */
+/**
+ * Adds a generated legend entry (stair steps etc.). Refuses to shadow an existing key:
+ * stair steps named 'A'..'N' once silently replaced the door 'D', fire door 'F' and
+ * others, turning every doorway into a pit you couldn't climb out of.
+ */
+export function addLegend(legend: Record<string, CellDef>, key: string, def: CellDef) {
+  if (key in legend) throw new Error(`legend key "${key}" is already used`);
+  legend[key] = def;
+}
+
 export function compose(w: number, h: number, fill: string, ops: ([string, number, number] | [string, number, number, number, number])[]): string[] {
   const g: string[][] = [];
   for (let z = 0; z < h; z++) g.push(new Array(w).fill(fill));

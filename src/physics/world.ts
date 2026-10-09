@@ -68,6 +68,11 @@ export class Physics {
     this.levelBodies.length = 0;
   }
 
+  /** How far the accumulator is into the next fixed step (0..1), for render interpolation. */
+  get alpha() {
+    return this.acc / this.fixedDt;
+  }
+
   /** Steps at a fixed rate; returns number of substeps taken. */
   step(dt: number, onStep?: (h: number) => void) {
     this.acc += Math.min(dt, 0.1);

@@ -3,7 +3,7 @@ import { Level, type Door } from './level';
 import { P, bx } from './props';
 import { ctx } from '../core/ctx';
 import {
-  V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, compose, corpse, savePoint, ensureLoadout, breakableWall,
+  V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, compose, addLegend, corpse, savePoint, ensureLoadout, breakableWall,
   type BuildOpts, type ChapterRun,
 } from './kit';
 import { NPC } from '../story/npc';
@@ -63,8 +63,8 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     // stairwell down to the garage
     ['S', 44, 16, 45, 16],
   ];
-  // stairs: 10 steps of 0.3 m going north (z 15 → 6)
-  const steps = 'ABCDEFGHIJ';
+  // stairs: 10 steps of 0.3 m going north (z 15 → 6); digits, clear of the legend's letters
+  const steps = '0123456789';
   for (let i = 0; i < 10; i++) ops.push([steps[i], 44, 15 - i, 45, 15 - i]);
   ops.push(['g', 2, 1, 46, 5]);
   ops.push(['g', 40, 6, 46, 6]);
@@ -90,7 +90,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   };
   for (let i = 0; i < 10; i++) {
     const fy = -0.3 * (i + 1);
-    legend[steps[i]] = { t: 'floor', floor: 'concrete', ceil: 'concreteDark', fy, cy: Math.max(fy + 3, 2.2 - i * 0.3), side: 'concrete' };
+    addLegend(legend, steps[i], { t: 'floor', floor: 'concrete', ceil: 'concreteDark', fy, cy: Math.max(fy + 3, 2.2 - i * 0.3), side: 'concrete' });
   }
   L.buildMap({ rows: compose(48, 40, '#', ops), legend });
 

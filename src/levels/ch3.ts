@@ -3,7 +3,7 @@ import { Level } from './level';
 import { P, bx } from './props';
 import { ctx } from '../core/ctx';
 import {
-  V, enemy, loot, say, wait, until, objective, flag, setFlag, compose, corpse, savePoint, ensureLoadout, bloodTrail,
+  V, enemy, loot, say, wait, until, objective, flag, setFlag, compose, addLegend, corpse, savePoint, ensureLoadout, bloodTrail,
   type BuildOpts, type ChapterRun,
 } from './kit';
 import { NPC } from '../story/npc';
@@ -58,7 +58,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     ['1', 27, 48, 28, 48],
     ['2', 27, 49, 28, 49],
   ];
-  const stepChars = 'ABCDEFGHIJKLMN';
+  // Greek letters, clear of the legend's own keys (doors, fire door, platform...)
+  const stepChars = 'αβγδεζηθικλμνξ';
   for (let i = 0; i < 14; i++) ops.push([stepChars[i], 8, 23 + i, 9, 23 + i]);
   const legend: Parameters<Level['buildMap']>[0]['legend'] = {
     '#': { t: 'wall', wall: 'tileGreen' },
@@ -85,7 +86,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   };
   for (let i = 0; i < 14; i++) {
     const fy = -0.3 * (i + 1);
-    legend[stepChars[i]] = { t: 'floor', floor: 'concrete', ceil: 'concreteDark', fy, cy: fy + 3.1, side: 'concrete' };
+    addLegend(legend, stepChars[i], { t: 'floor', floor: 'concrete', ceil: 'concreteDark', fy, cy: fy + 3.1, side: 'concrete' });
   }
   L.buildMap({ rows: compose(56, 52, '#', ops), legend });
   const T = (x: number, z: number, kind: 'buzz' | 'flicker' | 'dying' = 'buzz', i = 6) => L.tube(x, z, { kind, color: 0xd0fff0, intensity: i });

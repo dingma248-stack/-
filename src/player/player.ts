@@ -177,15 +177,26 @@ export class Player {
     this.recoilAccum += pitch;
   }
 
+  /**
+   * Latch edge-triggered input once per rendered frame. Physics runs 0–4 fixed
+   * steps per frame (none at all on many frames of a 144 Hz display), so reading
+   * wasPressed() inside fixedUpdate dropped jumps and crouch toggles.
+   */
+  pollInput() {
+    if (!this.control || this.frozen || this.dead || this.grabbedBy) return;
+    if (settings.crouchToggle && input.wasPressed('crouch')) this.crouchToggled = !this.crouchToggled;
+    if (input.wasPressed('jump')) {
+      this.jumpBuf = PLAYER.jumpBuffer;
+      if (settings.crouchToggle) this.crouchToggled = false; // jumping stands you up
+    }
+  }
+
   /** Fixed-step movement. */
   fixedUpdate(h: number) {
     if (!this.body) return;
     this.prevPos.copy(this.pos);
     const wantCrouch = settings.crouchToggle ? this.crouchToggled : input.isDown('crouch');
-    if (this.control && !this.frozen && !this.dead && !this.grabbedBy) {
-      if (settings.crouchToggle && input.wasPressed('crouch')) this.crouchToggled = !this.crouchToggled;
-      this.setCrouch(wantCrouch);
-    }
+    if (this.control && !this.frozen && !this.dead && !this.grabbedBy) this.setCrouch(wantCrouch);
     // ---- input direction ----
     let ix = 0, iz = 0;
     const canMove = this.control && !this.frozen && !this.dead && !this.grabbedBy;
@@ -233,18 +244,19 @@ export class Player {
     const k = 1 - Math.exp(-h / (accel * 0.45));
     this.vel.x += (tx - this.vel.x) * k;
     this.vel.z += (tz - this.vel.z) * k;
-    // ---- jump with coyote time + buffer ----
-    if (canMove && input.wasPressed('jump')) this.jumpBuf = PLAYER.jumpBuffer;
-    else this.jumpBuf -= h;
+    // ---- jump with coyote time + buffer (presses are latched per frame in pollInput) ----
     if (this.grounded) this.coyote = PLAYER.coyoteTime;
     else this.coyote -= h;
-    if (this.jumpBuf > 0 && this.coyote > 0 && !this.crouching) {
-      this.vel.y = PLAYER.jumpVelocity * (this.exhausted ? 0.8 : 1);
+    if (canMove && this.jumpBuf > 0 && this.coyote > 0) {
+      // always full height: running out of stamina only slows you down
+      this.vel.y = PLAYER.jumpVelocity;
       this.jumpBuf = 0;
       this.coyote = 0;
       this.grounded = false;
       this.stamina = Math.max(0, this.stamina - 6);
+      this.staminaDelay = PLAYER.staminaRegenDelay;
     }
+    this.jumpBuf -= h;
     this.vel.y -= PLAYER.gravity * h;
     if (this.grounded && this.vel.y < 0) this.vel.y = -2;
     // ---- move ----

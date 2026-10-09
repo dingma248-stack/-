@@ -540,7 +540,7 @@ export class UI {
       <div class="hud-health fadeable">
         <div class="lbl"><b>稳定</b><span class="hr">HR 72</span></div>
         <canvas width="200" height="46"></canvas>
-        <div class="stam"><i></i></div>
+        <div class="stam"><span>体力</span><div class="bar"><i></i></div><em>体力不支</em></div>
       </div>
       <div class="hud-ammo fadeable"><div class="wn"></div><div class="num"></div><div class="meta"></div></div>
       <div class="crosshair"><div class="dot"></div><div class="tk t"></div><div class="tk b"></div><div class="tk l"></div><div class="tk r"></div></div>
@@ -642,7 +642,7 @@ export class UI {
     this.hpLabel.textContent = p.dead ? '——' : ['稳定', '警戒', '危险'][state];
     this.hpLabel.className = state === 1 ? 'warn' : state === 2 ? 'danger' : '';
     this.hpRate.textContent = `HR ${Math.round(bpm)}`;
-    const st = this.stam.firstElementChild as HTMLElement;
+    const st = this.stam.querySelector('.bar i') as HTMLElement;
     st.style.width = `${(p.stamina / 100) * 100}%`;
     this.stam.classList.toggle('ex', p.exhausted);
     this.stam.style.opacity = p.stamina < 99 ? '1' : '0';

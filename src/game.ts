@@ -394,12 +394,14 @@ export class Game {
     ctx.audio.setDuck(0.25, 0.15);
     ctx.ui.showPause(true, this.stats);
     ctx.ui.showInventory(false);
+    ctx.ui.showHud(false); // the pause stats sit where the health readout is
     input.exitLock();
   }
 
   resume() {
     if (this.state !== 'paused') return;
     ctx.ui.showPause(false);
+    ctx.ui.showHud(true);
     this.canvas.classList.remove('blurred');
     ctx.audio.setDuck(1, 0.2);
     this.state = 'play';
@@ -572,11 +574,15 @@ export class Game {
       ctx.time += gdt;
       this.stats.time += dt;
       this.clock = Math.min(this.clockCap, this.clock + (this.clockRate * gdt) / 60);
-      if (playing) this.handleInput();
+      if (playing) {
+        this.handleInput();
+        p.pollInput();
+      }
       // physics
       ctx.physics.step(gdt, (h) => p.fixedUpdate(h));
       p.look(gdt);
-      p.update(gdt, 1);
+      // physics runs at 60 Hz; interpolate so the camera moves every frame on faster displays
+      p.update(gdt, ctx.physics.alpha);
       ctx.weapons.update(gdt);
       ctx.enemies.update(gdt);
       ctx.props.update(gdt);

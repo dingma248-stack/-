@@ -88,7 +88,7 @@ class Input {
       if (p && typeof p.catch === 'function') {
         p.catch(() => {
           try {
-            (this.canvas as any).requestPointerLock();
+            (this.canvas as any).requestPointerLock()?.catch?.(() => {});
           } catch {
             /* ignored */
           }

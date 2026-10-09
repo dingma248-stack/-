@@ -310,9 +310,13 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 .hud-health .lbl b.warn { color: var(--amber); }
 .hud-health .lbl b.danger { color: #e0473a; }
 .hud-health canvas { display: block; width: 200px; height: 46px; }
-.hud-health .stam { width: 200px; height: 1px; background: rgba(233, 227, 213, 0.08); margin-top: 6px; position: relative; }
-.hud-health .stam i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bone-dim); }
-.hud-health .stam.ex i { background: var(--red); }
+.hud-health .stam { width: 200px; display: flex; align-items: center; gap: 10px; margin-top: 8px; transition: opacity 0.4s var(--ease); }
+.hud-health .stam span { font-size: 11px; letter-spacing: 0.4em; color: var(--bone-faint); }
+.hud-health .stam .bar { flex: 1; height: 3px; background: rgba(233, 227, 213, 0.12); position: relative; }
+.hud-health .stam .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bone-dim); }
+.hud-health .stam em { display: none; font-style: normal; font-size: 11px; letter-spacing: 0.3em; color: #e0473a; }
+.hud-health .stam.ex .bar i { background: var(--red); }
+.hud-health .stam.ex em { display: inline; animation: breathe 1s infinite; }
 .hud-ammo { position: absolute; right: 44px; bottom: 34px; text-align: right; }
 .hud-ammo .wn { font-size: 12px; letter-spacing: 0.4em; color: var(--bone-faint); }
 .hud-ammo .num { font-family: var(--mono); font-weight: 300; font-size: 44px; letter-spacing: -0.02em; line-height: 1.1; color: var(--bone); }
