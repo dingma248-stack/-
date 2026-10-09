@@ -212,6 +212,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
 
   // ---------------- basement passage & subway ----------------
   const fire = L.doorsAt('F', { kind: 'metal', locked: 'b1card', msg: '防火门 · 需要门禁卡' })[0];
+  // stays shut until Lin has been found (meetLin hands it back to the card), so the rescue can't be skipped
+  if (!flag('ch3:lin')) fire.lock('ch3:findLin', '（电台里那个女人还在隔离病房——不能丢下她。）');
   L.light(V(8.5, 2.2, 21.4), 0x40ff60, 2, 4, 'steady');
   L.light(V(8.5, -2.5, 32), 0xffd090, 4, 7, 'flicker');
   L.light(V(8.5, -2.4, 37.5), 0xffd090, 4, 7, 'dying');
@@ -328,6 +330,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     if (flag('ch3:lin')) return;
     setFlag('ch3:lin');
     iso.enabled = false;
+    if (fire.locked === 'ch3:findLin') fire.lock('b1card', '防火门 · 需要门禁卡');
     ctx.audio.play('doorLocked', { pos: V(37.5, 1, 18), vol: 1 });
     await say('？？？', '……别进来！你被咬过吗？！');
     await say('陈屿', '没有。我是警察——以前是。');
@@ -497,7 +500,6 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     })();
   }, false);
   void until;
-  void fire;
 
   const spawns: Record<string, { pos: THREE.Vector3; yaw: number }> = {
     start: { pos: V(24.5, 0, 43.4), yaw: 0 },
