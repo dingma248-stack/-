@@ -6,6 +6,7 @@ import '@fontsource/jetbrains-mono/300.css';
 import '@fontsource/jetbrains-mono/400.css';
 import './ui/styles.css';
 import { Game } from './game';
+import { ctx } from './core/ctx';
 
 function hasWebGL2() {
   try {
@@ -26,5 +27,6 @@ if (!hasWebGL2()) {
     el.innerHTML = '启动失败：' + String(e?.message ?? e);
     el.style.display = 'flex';
   });
-  (window as unknown as { __game: Game }).__game = game;
+  (window as unknown as { __game: Game; __ctx: typeof ctx }).__game = game;
+  (window as unknown as { __ctx: typeof ctx }).__ctx = ctx;
 }

@@ -58,6 +58,7 @@ export class Feed {
     if (this.frame++ % 2) return;
     const gl = ctx.renderer.gl;
     const prev = gl.getRenderTarget();
+    ctx.lights.update(t, this.cam.position);
     gl.setRenderTarget(this.rt);
     gl.setClearColor(0x000000, 1);
     gl.clear(true, true, false);

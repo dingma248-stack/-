@@ -382,7 +382,7 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 }
 .objective.on { opacity: 1; transform: none; }
 .objective::before { content: '目标'; display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.5em; color: var(--red); margin-bottom: 4px; }
-.toasts { position: absolute; left: 50%; bottom: 25vh; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.toasts { position: absolute; left: 50%; bottom: 31vh; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .toast { font-size: 14px; letter-spacing: 0.24em; color: var(--bone); background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.55) 20%, rgba(0, 0, 0, 0.55) 80%, transparent); padding: 7px 60px; animation: toast 3.2s var(--ease) forwards; text-shadow: 0 1px 4px #000; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(6px); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
 .grab { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity 0.2s; }
@@ -404,7 +404,7 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 .letterbox.on::before, .letterbox.on::after { height: 11vh; }
 .skiphint { position: absolute; right: 44px; bottom: 4vh; font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; color: rgba(233, 227, 213, 0.35); z-index: 3; opacity: 0; transition: opacity 0.5s; }
 .skiphint.on { opacity: 1; }
-.savepulse { position: absolute; right: 44px; top: 100px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.35em; color: var(--bone-dim); opacity: 0; }
+.savepulse { position: absolute; right: 44px; top: 128px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.35em; color: var(--bone-dim); opacity: 0; }
 .savepulse.on { animation: toast 2.6s forwards; }
 .savepulse::before { content: '◆ '; color: var(--red); }
 
