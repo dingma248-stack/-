@@ -285,7 +285,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     if (powerCd > 0) return;
     powerT = 2.6;
     powerCd = 7;
-    handle.rotation.x = -1.2;
+    // pulled out towards the platform: now that the box faces it, -1.2 swung the handle into the wall
+    handle.rotation.x = 1.2;
     ctx.audio.play('lever', { pos: V(39, -3, 50), vol: 1 });
     ctx.audio.play('zap', { pos: V(30, -5, 55.5), vol: 1 });
   });
