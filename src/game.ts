@@ -411,6 +411,9 @@ export class Game {
 
   setOverlayPause(on: boolean) {
     this.overlayPause = on;
+    // the key that opened / closed a document, keypad or choice is used up: E must not reopen
+    // the calendar, Esc must not also pause, Space must not also jump
+    input.consume();
     if (on) {
       this.canvas.classList.add('dim');
       input.exitLock();
@@ -668,6 +671,8 @@ export class Game {
 
   private toggleInventory() {
     const open = !ctx.ui.inventoryOpen;
+    // the Tab / Esc that toggled the backpack must not also reopen it or open the pause menu
+    input.consume();
     ctx.ui.showInventory(open);
     if (open) {
       input.exitLock();

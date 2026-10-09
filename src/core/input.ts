@@ -129,6 +129,12 @@ class Input {
     this.wheel = 0;
   }
 
+  /** Drop this frame's press / release edges: an overlay that opened or closed on them used them up. */
+  consume() {
+    this.pressed.clear();
+    this.released.clear();
+  }
+
   resetAll() {
     this.down.clear();
     this.endFrame();
