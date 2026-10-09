@@ -1,9 +1,4 @@
-import '@fontsource/noto-serif-sc/400.css';
-import '@fontsource/noto-serif-sc/700.css';
-import '@fontsource/cormorant-garamond/500.css';
-import '@fontsource/cormorant-garamond/500-italic.css';
-import '@fontsource/jetbrains-mono/300.css';
-import '@fontsource/jetbrains-mono/400.css';
+import 'virtual:fonts.css'; // subset @fontsource faces, see build/fonts.mjs
 import './ui/styles.css';
 import { Game } from './game';
 import { ctx } from './core/ctx';

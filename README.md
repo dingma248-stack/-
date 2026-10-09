@@ -15,6 +15,7 @@
 npm install
 npm run dev        # 本地开发 http://localhost:5173
 npm run build      # 类型检查 + 生产构建（输出到 dist/）
+npm run build:single  # 离线单文件版：dist-single/mistport.html，双击即可运行
 npm run preview    # 预览构建结果
 ```
 
@@ -23,6 +24,8 @@ npm run preview    # 预览构建结果
 **提示**：进入游戏后点击画面锁定鼠标；觉得太暗可在 **设置 → 画面 → 亮度** 中调节。
 
 **在线游玩**：<https://dingma248-stack.github.io/-/>
+
+**离线版**：下载 [mistport.html](https://dingma248-stack.github.io/-/mistport.html)（约 6 MB），双击用 Chrome / Edge 打开即可，不需要联网或安装任何东西；存档保存在浏览器里。
 
 **部署**：推送到默认分支（或 `main`）后，`.github/workflows/deploy.yml` 会自动构建并发布到 GitHub Pages（需在仓库 Settings → Pages 中把 Source 设为 *GitHub Actions*）。
 

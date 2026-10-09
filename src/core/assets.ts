@@ -22,6 +22,8 @@ export interface AssetManifest {
 export const textureOverrides = new Map<string, HTMLImageElement>();
 
 export async function loadExternalAssets(): Promise<void> {
+  // browsers block fetch() on file:// pages (the offline single-file build)
+  if (location.protocol === 'file:') return;
   let manifest: AssetManifest;
   try {
     const res = await fetch('assets/manifest.json', { cache: 'no-cache' });

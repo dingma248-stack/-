@@ -25,6 +25,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      # offline single-file version, downloadable from the site
+      - run: npx vite build --mode single && cp dist-single/mistport.html dist/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
