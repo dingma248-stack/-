@@ -370,7 +370,7 @@ export const TEX = {
     }),
   coat: () =>
     make('coat', 32, (c, s, r) => {
-      noiseFill(c, s, r, '#18191b', 12);
+      noiseFill(c, s, r, '#26282c', 14);
       for (let x = 0; x < s; x += 3) {
         c.fillStyle = 'rgba(255,255,255,0.03)';
         c.fillRect(x, 0, 1, s);

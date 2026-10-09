@@ -145,10 +145,8 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
 
   // ---------------- doors ----------------
   L.door(2, 7, { kind: 'wood' });
-  const storeDoor = L.door(9, 10, { kind: 'wood' });
-  const dockDoors = L.doorsAt('D', { kind: 'metal' });
-  void storeDoor;
-  void dockDoors;
+  L.door(9, 10, { kind: 'wood' });
+  L.door(21, 8, { kind: 'metal', width: 2 });
 
   // ---------------- CCTV feed ----------------
   const feed = new Feed(V(23, 4.4, 9.5), V(26, 0.5, 4.2), V(3.5, 1, 2), 'CAM 03 卸货区');

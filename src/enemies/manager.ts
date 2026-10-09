@@ -15,6 +15,7 @@ export interface Hittable {
   raycast(o: THREE.Vector3, d: THREE.Vector3, maxD: number, pad?: number): { dist: number; part: Part } | null;
   damage(amount: number, part: Part, point: THREE.Vector3, dir: THREE.Vector3, knockback: number, weapon: WeaponId | 'blast' | 'boss'): HitResult;
   partPos(part: Part): THREE.Vector3;
+  update?(dt: number): void;
 }
 
 export class EnemyManager {
@@ -106,6 +107,7 @@ export class EnemyManager {
 
   update(dt: number) {
     for (const e of this.list) e.update(dt);
+    for (const b of this.bosses) b.update?.(dt);
     for (const c of this.corpses) {
       c.ragdoll?.update(dt);
       if (c.ragdoll && !c.ragdoll.frozen && c.ragdoll.age > 12) c.ragdoll.freeze();

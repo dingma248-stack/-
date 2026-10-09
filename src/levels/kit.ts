@@ -3,7 +3,7 @@ import { ctx } from '../core/ctx';
 import type { Level, MapDef } from './level';
 import type { EnemyKind, SpawnOpts, Enemy } from '../enemies/enemy';
 import { P, bx } from './props';
-import { stdMat, M } from '../render/materials';
+import { stdMat, M, surface } from '../render/materials';
 import { TEX } from '../render/textures';
 import type { WeaponId } from '../config';
 import { WEAPONS } from '../config';
@@ -152,4 +152,43 @@ export function corpse(L: Level, pos: THREE.Vector3, rot: number, tint = 0x2a304
   L.place({ g, cols: [] }, pos.clone().setY(pos.y), rot, { collide: false });
   if (blood) L.decal('blood', pos.clone().setY(pos.y + 0.01), V(0, 1, 0), 1.8 + Math.random());
   return g;
+}
+
+/**
+ * A wall segment placed on floor cells that can be smashed (by the stalker).
+ * Blocks movement and navigation until broken.
+ */
+export function breakableWall(L: Level, x0: number, z0: number, x1: number, z1: number, mat: string, height = 3) {
+  const w = x1 - x0 + 1, d = z1 - z0 + 1;
+  const g = new THREE.Group();
+  const m = surface(mat).mat;
+  bx(g, w, height, d, m, 0, height / 2, 0);
+  const center = V(x0 + w / 2, L.floorY(x0, z0), z0 + d / 2);
+  g.position.copy(center);
+  L.group.add(g);
+  const { body } = ctx.physics.addStaticBox(center.clone().setY(center.y + height / 2), V(w / 2, height / 2, d / 2), mat);
+  for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) L.nav.setBlocked(x, z, true);
+  let broken = false;
+  return {
+    center,
+    get broken() {
+      return broken;
+    },
+    smash(dir: THREE.Vector3) {
+      if (broken) return;
+      broken = true;
+      L.group.remove(g);
+      ctx.physics.removeBody(body);
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) L.nav.setBlocked(x, z, false);
+      ctx.audio.play('bossImpact', { pos: center, vol: 1 });
+      ctx.audio.play('woodBreak', { pos: center, vol: 1 });
+      ctx.particles.explosion(center.clone().setY(center.y + 1.2));
+      for (let i = 0; i < 14; i++) {
+        const s = 0.15 + Math.random() * 0.35;
+        const p = center.clone().add(V((Math.random() - 0.5) * w, 0.3 + Math.random() * height, (Math.random() - 0.5) * d));
+        ctx.props.spawnDebris(new THREE.BoxGeometry(s, s * 0.6, s * 0.8), m, p, dir.clone().multiplyScalar(3 + Math.random() * 4).add(V(0, 2, 0)), 6, 'impactConcrete');
+      }
+      ctx.player.shake = Math.max(ctx.player.shake, 1);
+    },
+  };
 }

@@ -410,6 +410,8 @@ export class Level {
 
   constructor(readonly id: string, env: LevelEnv) {
     this.env = env;
+    // the level under construction is the current one (NPCs, bosses etc. attach to it)
+    ctx.level = this;
     this.hemi = new THREE.HemisphereLight(env.hemiSky, env.hemiGround, env.hemiI);
     this.amb = new THREE.AmbientLight(env.ambient, env.ambientI);
     this.group.add(this.hemi, this.amb);
@@ -443,10 +445,10 @@ export class Level {
       for (let x = 0; x < this.w; x++) {
         const ch = rows[z][x] ?? ' ';
         this.chars.push(ch);
-        const isMarker = !def.legend[ch] && ch !== ' ';
         const cell = ch === ' ' ? ({ t: 'void', floor: '', wall: '', ceil: null, fy: 0, cy: null, side: '', nav: false } as ResolvedCell) : resolve(ch);
         this.cells.push(cell);
-        if (isMarker) {
+        // every non-wall char doubles as a marker so scripts can find cells by symbol
+        if (cell.t === 'floor') {
           let l = this.markers.get(ch);
           if (!l) this.markers.set(ch, (l = []));
           l.push([x, z]);
