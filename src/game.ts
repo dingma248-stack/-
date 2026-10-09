@@ -542,6 +542,8 @@ export class Game {
       R.render(this.scene, this.camera, ctx.time);
       return;
     }
+    // the backpack freezes the world (like reading a document); Tab / Esc closes it
+    if (this.state === 'play' && ctx.ui.inventoryOpen && (input.wasPressed('inventory') || input.wasPressed('pause'))) this.toggleInventory();
     const playing = this.state === 'play' && !this.overlayPause;
     const dying = this.state === 'dead';
     if (playing || dying) {
@@ -616,8 +618,7 @@ export class Game {
   private handleInput() {
     const p = ctx.player;
     if (input.wasPressed('pause')) {
-      if (ctx.ui.inventoryOpen) this.toggleInventory();
-      else if (ctx.ui.docOpen) ctx.ui.closeDoc();
+      if (ctx.ui.docOpen) ctx.ui.closeDoc();
       else this.pause();
       return;
     }
@@ -641,10 +642,13 @@ export class Game {
     if (open) {
       input.exitLock();
       this.canvas.classList.add('dim');
-      ctx.player.control = false;
+      this.overlayPause = true;
+      ctx.audio.setDuck(0.4, 0.2);
     } else {
       this.canvas.classList.remove('dim');
-      ctx.player.control = !ctx.story.inCutscene;
+      this.overlayPause = false;
+      ctx.audio.setDuck(1, 0.2);
+      this.last = performance.now();
       input.requestLock();
       setTimeout(() => {
         if (this.state === 'play' && !input.locked && !ctx.ui.inventoryOpen && !this.overlayPause) this.pause();

@@ -27,6 +27,7 @@ export interface Settings {
   resScale: number; // vertical resolution: 270 / 360 / 540
   vertexSnap: number; // 0..1
   crt: boolean;
+  brightness: number;
   headBob: boolean;
   crouchToggle: boolean;
   master: number;
@@ -45,6 +46,7 @@ const DEFAULTS: Settings = {
   resScale: 270,
   vertexSnap: 0.6,
   crt: false,
+  brightness: 1.1,
   headBob: true,
   crouchToggle: false,
   master: 0.85,

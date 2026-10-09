@@ -33,6 +33,7 @@ uniform float uDither;
 uniform vec3 uLift;
 uniform vec3 uGain;
 uniform vec3 uFadeColor;
+uniform float uBright;
 varying vec2 vUv;
 
 float bayer4(vec2 p) {
@@ -70,6 +71,7 @@ void main() {
 
   // linear -> display (gamma) space; everything below operates perceptually
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
+  col = pow(col, vec3(1.0 / uBright));
 
   // grade
   col = col * uGain + uLift * (1.0 - col);
@@ -181,6 +183,7 @@ export class RetroRenderer {
         uLift: { value: new THREE.Color(0.0, 0.0, 0.0) },
         uGain: { value: new THREE.Color(1, 1, 1) },
         uFadeColor: { value: new THREE.Color(0, 0, 0) },
+        uBright: { value: 1 },
       },
     });
     this.blit = new THREE.ShaderMaterial({
@@ -260,6 +263,7 @@ export class RetroRenderer {
     u.uFade.value = this.fx.fade;
     u.uFlash.value = this.fx.flash;
     u.uGrain.value = this.fx.grain;
+    u.uBright.value = settings.brightness;
     gl.setRenderTarget(this.postRT);
     gl.render(this.postScene, this.quadCam);
     this.blit.uniforms.tDiffuse.value = this.postRT.texture;

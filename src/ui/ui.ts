@@ -365,6 +365,7 @@ export class UI {
           ctx.game?.applyQuality();
         });
         this.choiceRow(body, '内部分辨率', [['270', '270p'], ['360', '360p'], ['540', '540p']], String(settings.resScale), (v) => (settings.resScale = Number(v)));
+        this.slider(body, '亮度', 0.8, 1.6, 0.02, settings.brightness, (v) => (settings.brightness = v), (v) => v.toFixed(2));
         this.slider(body, '视野 FOV', 70, 100, 1, settings.fov, (v) => (settings.fov = v), (v) => `${v}°`);
         this.slider(body, '顶点抖动', 0, 1, 0.05, settings.vertexSnap, (v) => (settings.vertexSnap = v), (v) => `${Math.round(v * 100)}%`);
         this.toggle(body, 'CRT 滤镜', settings.crt, (v) => (settings.crt = v));
