@@ -36,12 +36,12 @@ uniform vec3 uFadeColor;
 uniform float uBright;
 varying vec2 vUv;
 
+// 4x4 Bayer matrix (0 8 2 10 / 12 4 14 6 / 3 11 1 9 / 15 7 13 5) built from the 2x2 one
+// arithmetically: a per-pixel local array with a dynamic index is slow on some GPUs/drivers.
 float bayer4(vec2 p) {
-  int x = int(mod(p.x, 4.0));
-  int y = int(mod(p.y, 4.0));
-  int i = x + y * 4;
-  float m[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
-  return m[i] / 16.0;
+  vec2 a = mod(p, 2.0);
+  vec2 b = mod(floor(p * 0.5), 2.0);
+  return (4.0 * mod(2.0 * a.x + 3.0 * a.y, 4.0) + mod(2.0 * b.x + 3.0 * b.y, 4.0)) / 16.0;
 }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -59,14 +59,12 @@ void main() {
   col.b = texture2D(tDiffuse, uv - c * ca / uRes * 6.0).b;
 
   // cheap single-pass bloom: ring of taps around the pixel
+  // (offsets are the old loop's vec2(cos(i * 2.39996), sin(i * 2.39996)) * (1.5 + i * 0.55), precomputed)
   vec3 glow = vec3(0.0);
-  for (int i = 0; i < 12; i++) {
-    float a = float(i) * 2.39996;
-    float rad = 1.5 + float(i) * 0.55;
-    vec2 o = vec2(cos(a), sin(a)) * rad / uRes;
-    vec3 s = texture2D(tDiffuse, uv + o).rgb;
-    glow += max(s - 0.55, 0.0);
-  }
+  #define TAP(x, y) glow += max(texture2D(tDiffuse, uv + vec2(x, y) / uRes).rgb - 0.55, 0.0);
+  TAP(1.5, 0.0) TAP(-1.51160169, 1.38476002) TAP(0.227290154, -2.59004617) TAP(1.91660666, 2.49982381)
+  TAP(-3.64344811, -0.644426167) TAP(3.58592319, -2.28115225) TAP(-1.24601078, 4.63545656) TAP(-2.46596003, -4.74779320)
+  TAP(5.54204798, 2.02378464) TAP(-5.96195745, 2.46121216) TAP(2.96671724, -6.34023571) TAP(2.25984907, 7.20385885)
   col += glow * uBloom / 12.0 * 1.6;
 
   // linear -> display (gamma) space; everything below operates perceptually
@@ -205,13 +203,21 @@ export class RetroRenderer {
     window.addEventListener('resize', () => this.resize());
   }
 
+  /**
+   * Without CRT the last pass is a plain nearest-neighbour upscale, so the post pass draws straight into a
+   * low-res canvas and CSS (#game { image-rendering: pixelated }) scales it: no full-window blit pass.
+   */
+  private direct = false;
+
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
-    this.gl.setSize(w, h, false);
-    this.gl.domElement.style.width = w + 'px';
-    this.gl.domElement.style.height = h + 'px';
     this.lowH = settings.resScale;
     this.lowW = Math.max(160, Math.round((this.lowH * w) / h));
+    this.direct = !settings.crt;
+    if (this.direct) this.gl.setSize(this.lowW, this.lowH, false);
+    else this.gl.setSize(w, h, false);
+    this.gl.domElement.style.width = w + 'px';
+    this.gl.domElement.style.height = h + 'px';
     const mk = () => {
       const rt = new THREE.WebGLRenderTarget(this.lowW, this.lowH, {
         minFilter: THREE.NearestFilter,
@@ -243,7 +249,7 @@ export class RetroRenderer {
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera, time: number, view?: { scene: THREE.Scene; camera: THREE.Camera }) {
-    if (this.lowH !== settings.resScale) this.resize();
+    if (this.lowH !== settings.resScale || this.direct === settings.crt) this.resize();
     retroUniforms.uSnapStrength.value = settings.vertexSnap;
     retroUniforms.uTime.value = time;
     const gl = this.gl;
@@ -264,6 +270,11 @@ export class RetroRenderer {
     u.uFlash.value = this.fx.flash;
     u.uGrain.value = this.fx.grain;
     u.uBright.value = settings.brightness;
+    if (this.direct) {
+      gl.setRenderTarget(null);
+      gl.render(this.postScene, this.quadCam);
+      return;
+    }
     gl.setRenderTarget(this.postRT);
     gl.render(this.postScene, this.quadCam);
     this.blit.uniforms.tDiffuse.value = this.postRT.texture;

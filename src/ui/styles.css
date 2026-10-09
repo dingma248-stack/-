@@ -110,6 +110,9 @@ html, body {
 
 /* ------------------------------------------------ title */
 #title { z-index: 20; }
+/* Overlay-blending the grain onto pure-black shades equals painting it underneath them with normal
+   blending (only text pixels differ, by <= 2/255), and skips the compositor's isolation pass. */
+#title.grain::after { z-index: -1; mix-blend-mode: normal; }
 #title .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 50%, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.85) 100%); }
 #title .left-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 38%, rgba(0,0,0,0) 62%); }
 #title .logo {

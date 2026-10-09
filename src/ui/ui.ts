@@ -16,6 +16,11 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): 
   return e;
 };
 
+/** Per-frame HUD writes: touching textContent always replaces the text node (style + layout + repaint), so skip no-ops. */
+const setText = (e: HTMLElement, v: string) => {
+  if (e.textContent !== v) e.textContent = v;
+};
+
 type MenuDef = { label: string; en?: string; act: () => void; disabled?: boolean };
 
 export class UI {
@@ -69,6 +74,8 @@ export class UI {
   private hudIdle = 0;
   private lastHp = 100;
   private lastAmmo = '';
+  private lastClock = '';
+  private lastPrompt = '';
   private typing: number | null = null;
   private menuNav: { items: HTMLElement[]; idx: number; back?: () => void } | null = null;
   inventoryOpen = false;
@@ -616,36 +623,18 @@ export class UI {
     const samples = Math.max(1, Math.round(dt * 110));
     for (let i = 0; i < samples; i++) this.ecgBuf.push(ecgV((beat - ((samples - 1 - i) * dt) / samples / Math.max(0.3, 60 / Math.max(bpm, 1))) % 1));
     while (this.ecgBuf.length > 200) this.ecgBuf.shift();
-    const c = this.ecgCtx;
-    const col = state === 0 ? '214,226,206' : state === 1 ? '214,161,74' : '224,71,58';
-    c.clearRect(0, 0, 200, 46);
-    c.strokeStyle = 'rgba(233,227,213,0.06)';
-    c.lineWidth = 1;
-    for (let x = 0; x < 200; x += 20) {
-      c.beginPath();
-      c.moveTo(x + 0.5, 0);
-      c.lineTo(x + 0.5, 46);
-      c.stroke();
-    }
-    const n = this.ecgBuf.length;
-    for (let i = 1; i < n; i++) {
-      const a = i / n;
-      c.strokeStyle = `rgba(${col},${a * a})`;
-      c.lineWidth = 1.4;
-      c.beginPath();
-      c.moveTo(i - 1, 30 - this.ecgBuf[i - 1] * 22);
-      c.lineTo(i, 30 - this.ecgBuf[i] * 22);
-      c.stroke();
-    }
-    c.fillStyle = `rgba(${col},1)`;
-    c.fillRect(n - 2, 29 - this.ecgBuf[n - 1] * 22, 3, 3);
-    this.hpLabel.textContent = p.dead ? '——' : ['稳定', '警戒', '危险'][state];
-    this.hpLabel.className = state === 1 ? 'warn' : state === 2 ? 'danger' : '';
-    this.hpRate.textContent = `HR ${Math.round(bpm)}`;
+    // the trace is invisible once the idle health block has faded out (.idle after 4.5 s + 0.9 s opacity transition)
+    if (this.hudIdle < 5.4) this.drawEcg(state);
+    setText(this.hpLabel, p.dead ? '——' : ['稳定', '警戒', '危险'][state]);
+    const hpCls = state === 1 ? 'warn' : state === 2 ? 'danger' : '';
+    if (this.hpLabel.className !== hpCls) this.hpLabel.className = hpCls;
+    setText(this.hpRate, `HR ${Math.round(bpm)}`);
     const st = this.stam.querySelector('.bar i') as HTMLElement;
-    st.style.width = `${(p.stamina / 100) * 100}%`;
+    const sw = `${p.stamina.toFixed(1)}%`;
+    if (st.style.width !== sw) st.style.width = sw;
     this.stam.classList.toggle('ex', p.exhausted);
-    this.stam.style.opacity = p.stamina < 99 ? '1' : '0';
+    const so = p.stamina < 99 ? '1' : '0';
+    if (this.stam.style.opacity !== so) this.stam.style.opacity = so;
     // ---- ammo ----
     const w = ctx.weapons;
     const am = w.ammoText();
@@ -667,13 +656,17 @@ export class UI {
     // ---- clock ----
     const clk = ctx.game.clock;
     const t = fmtClock(clk);
-    this.clock.innerHTML = `${t.slice(0, 2)}<span class="colon">:</span>${t.slice(3)}`;
+    if (t !== this.lastClock) {
+      this.lastClock = t;
+      this.clock.innerHTML = `${t.slice(0, 2)}<span class="colon">:</span>${t.slice(3)}`;
+    }
     const left = Math.max(0, PURGE_CLOCK - clk);
-    this.purge.textContent = `净化倒计时 ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    setText(this.purge, `净化倒计时 ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`);
     // ---- battery ----
     const b = p.battery;
-    (this.batt.querySelector('.cell i') as HTMLElement).style.width = `${b}%`;
-    (this.batt.querySelector('.pc') as HTMLElement).textContent = p.flashOn ? `${Math.ceil(b)}%` : 'OFF';
+    // 0.1 % steps (0.02 px on the 22 px cell) instead of a new width every frame
+    (this.batt.querySelector('.cell i') as HTMLElement).style.width = `${b.toFixed(1)}%`;
+    setText(this.batt.querySelector('.pc') as HTMLElement, p.flashOn ? `${Math.ceil(b)}%` : 'OFF');
     this.batt.classList.toggle('low', b < 20);
     // ---- idle fade ----
     if (Math.abs(hp - this.lastHp) > 0.1 || ctx.director.inCombat || ctx.weapons.state !== 'idle' || hp < 40 || p.stamina < 99) this.hudIdle = 0;
@@ -698,6 +691,32 @@ export class UI {
     (this.hud.querySelector('.lockhint') as HTMLElement).classList.toggle('on', needLock);
   }
 
+  private drawEcg(state: number) {
+    const c = this.ecgCtx;
+    const col = state === 0 ? '214,226,206' : state === 1 ? '214,161,74' : '224,71,58';
+    c.clearRect(0, 0, 200, 46);
+    c.strokeStyle = 'rgba(233,227,213,0.06)';
+    c.lineWidth = 1;
+    for (let x = 0; x < 200; x += 20) {
+      c.beginPath();
+      c.moveTo(x + 0.5, 0);
+      c.lineTo(x + 0.5, 46);
+      c.stroke();
+    }
+    const n = this.ecgBuf.length;
+    for (let i = 1; i < n; i++) {
+      const a = i / n;
+      c.strokeStyle = `rgba(${col},${a * a})`;
+      c.lineWidth = 1.4;
+      c.beginPath();
+      c.moveTo(i - 1, 30 - this.ecgBuf[i - 1] * 22);
+      c.lineTo(i, 30 - this.ecgBuf[i] * 22);
+      c.stroke();
+    }
+    c.fillStyle = `rgba(${col},1)`;
+    c.fillRect(n - 2, 29 - this.ecgBuf[n - 1] * 22, 3, 3);
+  }
+
   prompt(text: string | null, pos?: THREE.Vector3) {
     if (!text || !pos) {
       this.promptEl.classList.remove('on');
@@ -711,11 +730,17 @@ export class UI {
     }
     const x = (v.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-    this.promptEl.style.left = `${clamp(x, 80, window.innerWidth - 80)}px`;
-    this.promptEl.style.top = `${clamp(y - 18, 60, window.innerHeight - 60)}px`;
+    const left = `${Math.round(clamp(x, 80, window.innerWidth - 80))}px`;
+    const top = `${Math.round(clamp(y - 18, 60, window.innerHeight - 60))}px`;
+    if (this.promptEl.style.left !== left) this.promptEl.style.left = left;
+    if (this.promptEl.style.top !== top) this.promptEl.style.top = top;
     const m = /^\[(.+?)\]\s*(.*)$/.exec(text);
     const k = keyLabel(settings.bindings.interact);
-    this.promptEl.innerHTML = m ? `<span class="k">${m[1] === 'E' ? k : m[1]}</span>${m[2]}` : text;
+    const html = m ? `<span class="k">${m[1] === 'E' ? k : m[1]}</span>${m[2]}` : text;
+    if (html !== this.lastPrompt) {
+      this.lastPrompt = html;
+      this.promptEl.innerHTML = html;
+    }
     this.promptEl.classList.add('on');
   }
 

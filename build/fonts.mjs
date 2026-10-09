@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
+import { normalizePath } from 'vite';
 import subsetFont from 'subset-font';
 
 /**
@@ -61,7 +62,7 @@ function formatRange(cps) {
 }
 
 async function generate(faces, chars) {
-  const jobs = [];
+  const all = [];
   for (const face of faces) {
     const cssPath = require.resolve(`@fontsource/${face}.css`);
     const css = fs.readFileSync(cssPath, 'utf8');
@@ -72,22 +73,36 @@ async function generate(faces, chars) {
       const range = prop('unicode-range');
       if (!woff2 || !range) continue;
       const rs = parseRange(range);
-      const cps = chars.filter((c) => rs.some(([a, b]) => c >= a && c <= b));
-      if (!cps.length) continue;
-      jobs.push(
-        (async () => {
-          const src = fs.readFileSync(path.resolve(path.dirname(cssPath), woff2));
-          const text = String.fromCodePoint(...cps);
-          const data = await subsetFont(src, text, { targetFormat: 'woff2' });
-          return (
-            `@font-face{font-family:${prop('font-family')};font-style:${prop('font-style')};font-weight:${prop('font-weight')};` +
-            `font-display:swap;src:url(data:font/woff2;base64,${data.toString('base64')}) format('woff2');unicode-range:${formatRange(cps)}}`
-          );
-        })(),
-      );
+      all.push({ prop, file: path.resolve(path.dirname(cssPath), woff2), cps: chars.filter((c) => rs.some(([a, b]) => c >= a && c <= b)) });
     }
   }
-  // keep @fontsource's declaration order: for overlapping ranges the later face wins
+  // For overlapping ranges the browser uses the last face declared, so earlier faces of the
+  // same family/style/weight never show those code points: leave them out of their subsets.
+  const claimed = new Map();
+  for (let i = all.length - 1; i >= 0; i--) {
+    const f = all[i];
+    const k = `${f.prop('font-family')}|${f.prop('font-style')}|${f.prop('font-weight')}`;
+    if (!claimed.has(k)) claimed.set(k, new Set());
+    const taken = claimed.get(k);
+    f.cps = f.cps.filter((c) => !taken.has(c));
+    for (const c of f.cps) taken.add(c);
+  }
+  const jobs = [];
+  for (const { prop, file, cps } of all) {
+    if (!cps.length) continue;
+    jobs.push(
+      (async () => {
+        const src = fs.readFileSync(file);
+        const text = String.fromCodePoint(...cps);
+        const data = await subsetFont(src, text, { targetFormat: 'woff2' });
+        return (
+          `@font-face{font-family:${prop('font-family')};font-style:${prop('font-style')};font-weight:${prop('font-weight')};` +
+          `font-display:swap;src:url(data:font/woff2;base64,${data.toString('base64')}) format('woff2');unicode-range:${formatRange(cps)}}`
+        );
+      })(),
+    );
+  }
+  // keep @fontsource's declaration order
   return (await Promise.all(jobs)).join('\n') + '\n';
 }
 
@@ -101,20 +116,36 @@ export function fontSubset({ faces, sources }) {
   let key = '';
   let pending = null;
 
+  // anything that changes the output: the character set, the font packages, this generator
+  const inputs = () => [
+    faces,
+    require('subset-font/package.json').version,
+    ...new Set(faces.map((f) => `${f.split('/')[0]}@${require(`@fontsource/${f.split('/')[0]}/package.json`).version}`)),
+    fs.readFileSync(new URL(import.meta.url), 'utf8'),
+  ];
+
   const build = () => {
     const chars = collectChars(root, sources);
-    const version = require('subset-font/package.json').version;
-    const nextKey = crypto.createHash('sha1').update(JSON.stringify([faces, chars, version])).digest('hex').slice(0, 16);
+    const nextKey = crypto.createHash('sha1').update(JSON.stringify([chars, ...inputs()])).digest('hex').slice(0, 16);
     if (nextKey === key && pending) return pending;
     key = nextKey;
-    const cacheFile = path.join(root, 'node_modules/.cache/mistport-fonts', `${key}.css`);
+    const dir = path.join(root, 'node_modules/.cache/mistport-fonts');
+    const cacheFile = path.join(dir, `${key}.css`);
     pending = fs.existsSync(cacheFile)
       ? Promise.resolve(fs.readFileSync(cacheFile, 'utf8'))
       : generate(faces, chars).then((css) => {
-          fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
-          fs.writeFileSync(cacheFile, css);
+          fs.mkdirSync(dir, { recursive: true });
+          // write-then-rename so a concurrent build never reads half a file
+          const tmp = `${cacheFile}.${process.pid}.tmp`;
+          fs.writeFileSync(tmp, css);
+          fs.renameSync(tmp, cacheFile);
+          for (const f of fs.readdirSync(dir)) if (f.endsWith('.css') && f !== `${key}.css`) fs.rmSync(path.join(dir, f), { force: true });
           return css;
         });
+    // don't remember a failure (e.g. a read-only cache dir) for this key
+    pending.catch(() => {
+      if (key === nextKey) pending = null;
+    });
     return pending;
   };
 
@@ -131,9 +162,14 @@ export function fontSubset({ faces, sources }) {
     },
     // dev server: new text in the source may need new glyphs
     handleHotUpdate({ file, server, modules }) {
-      if (!TEXT_EXT.test(file) || !sources.some((s) => file.startsWith(path.resolve(root, s)))) return;
+      // Vite hands over forward-slash paths on every OS; path.resolve gives backslashes on Windows
+      const inSources = sources.some((s) => {
+        const rel = path.relative(normalizePath(path.resolve(root, s)), file);
+        return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+      });
+      if (!TEXT_EXT.test(file) || !inSources) return;
       const before = key;
-      void build();
+      build().catch((err) => server.config.logger.error(`[font-subset] ${err?.message ?? err}`));
       if (key === before) return;
       const mod = server.moduleGraph.getModuleById(RID);
       if (!mod) return;
