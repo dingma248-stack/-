@@ -270,10 +270,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     zhou.face(ctx.player.pos);
     await wait(1);
     await say('老周', '整个分局就剩我一个了。其他人……要么跑了，要么变成外面那样。');
-    await say('老周', '地下停车场还有一辆巡逻车。钥匙你拿着。');
-    ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
-    ctx.audio.play('pickup', { bus: 'ui' });
-    ctx.ui.toast('获得 停车场钥匙');
+    // the key changes hands when he falls (stalkerEntrance): handed over here, it let you drive off
+    // without the armory, the shotgun or the stalker
+    await say('老周', '地下停车场还有一辆巡逻车，钥匙在我这儿。');
     await say('老周', '光靠那把手枪出不去。东边装备室有霰弹枪，门禁密码只有郑局知道。');
     await say('陈屿', '郑局呢？');
     await say('老周', '……在他办公室里。西边走廊尽头。小心点。');
@@ -357,7 +356,12 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       setFlag('ch2:zhouDead');
       ctx.player.shake = 1.2;
       await wait(1.2);
-      await say('老周', '（咳）……跑……去停车场……');
+      await say('老周', '（咳）……钥匙……跑……去停车场……');
+      if (!ctx.inventory.hasKey('garageKey')) {
+        ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
+        ctx.audio.play('pickup', { bus: 'ui' });
+        ctx.ui.toast('获得 停车场钥匙');
+      }
       await wait(0.4);
       nw!.yaw = Math.atan2(29.6 - 23.5, 29.6 - 31);
       await s.camTo(V(29.6, 1.75, 29.6), V(23.5, 2.2, 31), 0.5);
@@ -429,7 +433,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
         { name: 'radio', vol: 0.2, dist: [8, 14] },
       ];
       L.startAmbience();
-      if (!ctx.inventory.hasKey('garageKey') && (cp !== 'start' || flag('ch2:intro'))) ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
+      if (!ctx.inventory.hasKey('garageKey') && flag('ch2:stalker')) ctx.inventory.addKey({ id: 'garageKey', name: '停车场钥匙', desc: '老周给的。通往 B1 停车场。' });
       if (cp === 'start' && !flag('ch2:intro')) {
         setFlag('ch2:intro');
         void intro();
