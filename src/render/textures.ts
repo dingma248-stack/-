@@ -11,12 +11,50 @@ type Draw = (ctx: CanvasRenderingContext2D, s: number, r: () => number) => void;
 
 const cache = new Map<string, THREE.CanvasTexture>();
 
+/**
+ * How much relief (normal-map strength, blur passes) and gloss variation (see roughFrom) stdMat derives
+ * from each surface texture. Kept here, next to the drawings they describe.
+ */
+const RELIEF: Record<string, { relief: number; blur?: number; gloss?: number }> = {
+  concrete: { relief: 2.5, blur: 2 },
+  concreteDark: { relief: 2.5, blur: 2 },
+  asphalt: { relief: 1.5, blur: 2, gloss: -1.2 },
+  roadLine: { relief: 1.5, blur: 2, gloss: -1.2 },
+  sidewalk: { relief: 3, gloss: -1 },
+  brick: { relief: 3.5 },
+  plaster: { relief: 1.5, blur: 2 },
+  wallpaper: { relief: 1.2 },
+  woodPanel: { relief: 2, gloss: 0.5 },
+  woodFloor: { relief: 2.5, gloss: 0.8 },
+  crate: { relief: 2.5 },
+  tileWhite: { relief: 3, gloss: 1.2 },
+  tileGreen: { relief: 3, gloss: 1.2 },
+  tileFloor: { relief: 1.2 },
+  linoleum: { relief: 1, blur: 2 },
+  carpet: { relief: 1.5 },
+  metal: { relief: 2, gloss: 0.8 },
+  steel: { relief: 1.2, gloss: 1 },
+  rust: { relief: 2.5, blur: 2, gloss: -1.2 },
+  grate: { relief: 3.5 },
+  ceilingTile: { relief: 2 },
+  sewer: { relief: 2.5, gloss: -1.2 },
+  water: { relief: 1.2, blur: 2 },
+  flesh: { relief: 2.5, gloss: -0.8 },
+  skin: { relief: 1.2 },
+  cloth: { relief: 1.2 },
+  coat: { relief: 0.8 },
+  fur: { relief: 2 },
+  facade: { relief: 2 },
+  paper: { relief: 0.6 },
+};
+
 function make(key: string, size: number, draw: Draw, seed = 1, srgb = true): THREE.CanvasTexture {
   const hit = cache.get(key);
   if (hit) return hit;
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  const ctx = c.getContext('2d')!;
+  // read back by noiseFill and the derived relief maps: keep the canvas on the CPU
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
   const ov = textureOverrides.get(key);
   if (ov) {
     // an external CC0 texture replaces the procedural one
@@ -26,11 +64,15 @@ function make(key: string, size: number, draw: Draw, seed = 1, srgb = true): THR
   } else draw(ctx, size, seeded(seed * 9973 + key.length * 131));
   const t = new THREE.CanvasTexture(c);
   t.magFilter = THREE.NearestFilter;
-  t.minFilter = THREE.NearestMipmapNearestFilter;
+  // crisp texels within a mip level, but blend between levels: hard mip switches draw bands across floors
+  // that crawl along with the camera
+  t.minFilter = THREE.NearestMipmapLinearFilter;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.generateMipmaps = true;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 1;
+  t.name = key;
+  if (RELIEF[key]) t.userData.relief = RELIEF[key];
   cache.set(key, t);
   return t;
 }
@@ -104,6 +146,23 @@ function drips(ctx: CanvasRenderingContext2D, s: number, r: () => number, color:
   }
 }
 
+/** Standing water: flat, dark, noise-free blobs (smooth + recessed once roughFrom/normalFrom read them). */
+function puddles(ctx: CanvasRenderingContext2D, s: number, r: () => number, count: number, maxR: number) {
+  ctx.fillStyle = '#1d1f23';
+  for (let i = 0; i < count; i++) {
+    const x = r() * s, y = r() * s;
+    for (let j = 0; j < 4; j++) {
+      const ex = x + (r() - 0.5) * maxR * 1.4, ey = y + (r() - 0.5) * maxR * 0.8;
+      const rx = maxR * (0.35 + r() * 0.65), ry = rx * (0.4 + r() * 0.4), rot = r() * 0.6 - 0.3;
+      for (const ox of [-s, 0, s]) for (const oy of [-s, 0, s]) {
+        ctx.beginPath();
+        ctx.ellipse(ex + ox, ey + oy, rx, ry, rot, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
 function tiles(ctx: CanvasRenderingContext2D, s: number, r: () => number, n: number, base: string, grout: string, vary: number, dirt = 0.1) {
   const t = s / n;
   const [br, bg, bb] = parse(base);
@@ -123,6 +182,30 @@ function tiles(ctx: CanvasRenderingContext2D, s: number, r: () => number, n: num
     ctx.fillRect(0, i * t - 0.5, s, 1);
   }
   blotches(ctx, s, r, [40, 34, 20], Math.floor(6 * dirt * 10), s * 0.25, dirt);
+}
+
+/**
+ * One window layout shared by the facade albedo and its emissive map, so the windows that glow are the
+ * windows that are drawn lit (4×4 windows per 128 px tile = 8 m of wall).
+ */
+let facadeLayout: { x: number; y: number; lit: boolean; warm: boolean; curtain: number; glint: boolean; ac: boolean; streak: number }[] | null = null;
+function facadeWindows() {
+  if (facadeLayout) return facadeLayout;
+  const r = seeded(4111);
+  facadeLayout = [];
+  for (let y = 8; y < 128; y += 32)
+    for (let x = 8; x < 128; x += 32) {
+      const lit = r() < 0.3;
+      facadeLayout.push({
+        x, y, lit,
+        warm: r() < 0.7,
+        curtain: r() < 0.45 ? 4 + Math.floor(r() * 6) : 0,
+        glint: r() < 0.5,
+        ac: r() < 0.15,
+        streak: 4 + Math.floor(r() * 10),
+      });
+    }
+  return facadeLayout;
 }
 
 export const TEX = {
@@ -146,6 +229,7 @@ export const TEX = {
       speckle(c, s, r, 'rgba(120,120,125,0.25)', 400);
       blotches(c, s, r, [10, 12, 16], 14, 30, 0.5);
       cracks(c, s, r, 'rgba(8,8,10,0.7)', 5);
+      puddles(c, s, r, 3, 13);
     }),
   roadLine: () =>
     make('roadLine', 64, (c, s, r) => {
@@ -153,6 +237,7 @@ export const TEX = {
       c.fillStyle = 'rgba(200,170,90,0.75)';
       c.fillRect(s / 2 - 3, 0, 6, s * 0.6);
       speckle(c, s, r, 'rgba(30,30,30,0.6)', 120);
+      puddles(c, s, r, 1, 6);
     }),
   sidewalk: () =>
     make('sidewalk', 64, (c, s, r) => tiles(c, s, r, 2, '#5b5853', 'rgba(25,24,22,0.9)', 18, 0.2)),
@@ -396,32 +481,62 @@ export const TEX = {
       speckle(c, s, r, 'rgba(90,50,20,0.6)', 20);
     }),
   facade: () =>
-    make('facade', 64, (c, s, r) => {
-      noiseFill(c, s, r, '#2a2a2d', 14);
-      for (let y = 4; y < s; y += 16)
-        for (let x = 4; x < s; x += 16) {
-          const lit = r() < 0.18;
-          const warm = r() < 0.7;
-          c.fillStyle = lit ? (warm ? 'rgba(220,170,90,1)' : 'rgba(150,180,200,1)') : 'rgba(12,13,16,1)';
-          c.fillRect(x, y, 8, 10);
-          c.fillStyle = 'rgba(0,0,0,0.5)';
-          c.fillRect(x, y + 5, 8, 1);
+    make('facade', 128, (c, s, r) => {
+      noiseFill(c, s, r, '#2a2a2d', 12);
+      blotches(c, s, r, [14, 14, 16], 10, 26, 0.35);
+      for (const w of facadeWindows()) {
+        // floor slab ledge: lit edge on top, shadow under it
+        c.fillStyle = 'rgba(70,70,74,0.55)';
+        c.fillRect(w.x - 8, w.y - 6, 32, 2);
+        c.fillStyle = 'rgba(0,0,0,0.35)';
+        c.fillRect(w.x - 8, w.y - 4, 32, 1);
+        c.fillStyle = 'rgb(58,58,62)'; // frame
+        c.fillRect(w.x - 1, w.y - 1, 18, 22);
+        c.fillStyle = w.lit ? (w.warm ? 'rgb(220,170,90)' : 'rgb(150,180,200)') : 'rgb(12,13,16)';
+        c.fillRect(w.x, w.y, 16, 20);
+        if (w.lit && w.curtain) {
+          c.fillStyle = w.warm ? 'rgb(120,70,38)' : 'rgb(70,86,100)';
+          c.fillRect(w.x, w.y, w.curtain, 20);
         }
-      drips(c, s, r, [5, 5, 5], 10, 0.5);
+        if (!w.lit && w.glint) {
+          c.fillStyle = 'rgba(120,130,140,0.25)'; // sky reflected in a dark pane
+          c.fillRect(w.x + 2, w.y + 2, 3, 9);
+        }
+        c.fillStyle = 'rgb(34,34,38)'; // mullions
+        c.fillRect(w.x + 7, w.y, 2, 20);
+        c.fillRect(w.x, w.y + 8, 16, 1);
+        c.fillStyle = 'rgb(84,84,88)'; // sill
+        c.fillRect(w.x - 2, w.y + 21, 20, 2);
+        if (w.ac) {
+          c.fillStyle = 'rgb(96,98,96)';
+          c.fillRect(w.x + 17, w.y + 12, 6, 6);
+          c.fillStyle = 'rgba(0,0,0,0.5)';
+          c.fillRect(w.x + 18, w.y + 13, 4, 1);
+          c.fillRect(w.x + 18, w.y + 15, 4, 1);
+        }
+        // grime washed down from the sill
+        const g = c.createLinearGradient(0, w.y + 23, 0, w.y + 23 + w.streak);
+        g.addColorStop(0, 'rgba(6,6,6,0.45)');
+        g.addColorStop(1, 'rgba(6,6,6,0)');
+        c.fillStyle = g;
+        c.fillRect(w.x + 1, w.y + 23, 14, w.streak);
+      }
+      drips(c, s, r, [5, 5, 5], 14, 0.4);
     }),
   facadeEmissive: () =>
-    make('facadeEmissive', 64, (c, s, r) => {
+    make('facadeEmissive', 128, (c, s) => {
       c.fillStyle = '#000';
       c.fillRect(0, 0, s, s);
-      for (let y = 4; y < s; y += 16)
-        for (let x = 4; x < s; x += 16) {
-          const lit = r() < 0.18;
-          const warm = r() < 0.7;
-          if (lit) {
-            c.fillStyle = warm ? 'rgba(220,150,70,1)' : 'rgba(120,160,190,1)';
-            c.fillRect(x, y, 8, 10);
-          }
-        }
+      for (const w of facadeWindows()) {
+        if (!w.lit) continue;
+        c.fillStyle = w.warm ? 'rgb(220,150,70)' : 'rgb(120,160,190)';
+        c.fillRect(w.x, w.y, 16, 20);
+        c.fillStyle = w.warm ? 'rgb(90,50,22)' : 'rgb(40,56,70)';
+        if (w.curtain) c.fillRect(w.x, w.y, w.curtain, 20);
+        c.fillStyle = '#000';
+        c.fillRect(w.x + 7, w.y, 2, 20);
+        c.fillRect(w.x, w.y + 8, 16, 1);
+      }
     }, 1),
   glass: () =>
     make('glass', 32, (c, s, r) => {
@@ -506,28 +621,34 @@ export const TEX = {
       }
       speckle(c, s, r, 'rgba(70,6,8,0.6)', 80, 2);
     }),
-  flashlightCookie: () =>
-    make('cookie', 128, (c, s, r) => {
+  flashlightCookie: () => {
+    const t = make('cookie', 128, (c, s, r) => {
       c.fillStyle = '#000';
       c.fillRect(0, 0, s, s);
+      // hot centre, a faint reflector ring, long soft spill (a hard dark/bright ring read as a target reticle)
       const g = c.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
       g.addColorStop(0, 'rgb(255,250,235)');
-      g.addColorStop(0.18, 'rgb(240,232,210)');
-      g.addColorStop(0.32, 'rgb(150,145,130)');
-      g.addColorStop(0.42, 'rgb(190,180,160)');
-      g.addColorStop(0.5, 'rgb(90,86,78)');
-      g.addColorStop(0.85, 'rgb(30,28,26)');
+      g.addColorStop(0.18, 'rgb(242,234,214)');
+      g.addColorStop(0.32, 'rgb(196,189,172)');
+      g.addColorStop(0.4, 'rgb(208,200,182)');
+      g.addColorStop(0.5, 'rgb(130,124,112)');
+      g.addColorStop(0.85, 'rgb(34,32,29)');
       g.addColorStop(1, 'rgb(0,0,0)');
       c.fillStyle = g;
       c.fillRect(0, 0, s, s);
       // lens dirt
-      for (let i = 0; i < 40; i++) {
-        c.fillStyle = `rgba(0,0,0,${r() * 0.15})`;
+      for (let i = 0; i < 24; i++) {
+        c.fillStyle = `rgba(0,0,0,${r() * 0.08})`;
         c.beginPath();
-        c.arc(r() * s, r() * s, 2 + r() * 8, 0, Math.PI * 2);
+        c.arc(r() * s, r() * s, 3 + r() * 8, 0, Math.PI * 2);
         c.fill();
       }
-    }, 7),
+    }, 7);
+    // a beam of light, not a surface: filtered, or its texels step across every wall it hits
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    return t;
+  },
   sign: (text: string, bg = '#1a3b26', fg = '#d8e8d0', w = 128, h = 32, font = 'bold 18px "Noto Serif SC", serif') => {
     const key = `sign:${text}:${bg}:${fg}:${w}:${h}`;
     const hit = cache.get(key);
@@ -579,7 +700,131 @@ export const TEX = {
     }),
 };
 
+/**
+ * Relief and gloss maps derived from a colour texture, so every procedural (or CC0 override) surface
+ * gets them for free. Height is the blurred luminance: grout, mortar, plank gaps, cracks and puddles are
+ * darker than their surroundings and so read as recessed.
+ */
+const derived = new Map<string, THREE.Texture>();
+
+function luminance(src: THREE.Texture, blur: number) {
+  const img = src.image as HTMLCanvasElement;
+  const w = img.width, h = img.height;
+  let px: Uint8ClampedArray;
+  try {
+    px = img.getContext('2d')!.getImageData(0, 0, w, h).data;
+  } catch {
+    return null; // a cross-origin override taints the canvas: keep the flat look
+  }
+  let a = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) a[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) / 255;
+  // 3×3 box passes; wrap around because every surface texture tiles
+  for (let pass = 0; pass < blur; pass++) {
+    const b = new Float32Array(w * h);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        let s = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) s += a[((y + dy + h) % h) * w + ((x + dx + w) % w)];
+        b[y * w + x] = s / 9;
+      }
+    a = b;
+  }
+  return { a, w, h };
+}
+
+function derivedTexture(key: string, w: number, h: number, fill: (data: Uint8ClampedArray) => void): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d')!;
+  const img = g.createImageData(w, h);
+  fill(img.data);
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  // chunky up close like the colour texels; trilinear far away so relief doesn't sparkle at distance
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.generateMipmaps = true;
+  derived.set(key, t);
+  return t;
+}
+
+/**
+ * Tangent-space normal map (OpenGL convention, +Y = +v; canvas rows run down, so v runs up), built at
+ * twice the colour resolution from the bilinearly resampled height: bevels come out half a colour texel
+ * wide, so grout and seams read as edges instead of a mosaic of tilted texels. Large CC0 overrides
+ * already have the detail and stay 1:1.
+ */
+export function normalFrom(src: THREE.Texture, strength: number, blur = 1): THREE.Texture | null {
+  const key = `n:${src.uuid}:${strength}:${blur}`;
+  const hit = derived.get(key);
+  if (hit) return hit;
+  const lum = luminance(src, blur);
+  if (!lum) return null;
+  const { a, w, h } = lum;
+  const up = Math.max(w, h) < 256 ? 2 : 1;
+  const W = w * up, H = h * up;
+  const hf = new Float32Array(W * H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const sx = (x + 0.5) / up - 0.5, sy = (y + 0.5) / up - 0.5;
+      const x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0;
+      const at = (xx: number, yy: number) => a[((yy + h) % h) * w + ((xx + w) % w)];
+      const top = at(x0, y0) * (1 - fx) + at(x0 + 1, y0) * fx;
+      const bot = at(x0, y0 + 1) * (1 - fx) + at(x0 + 1, y0 + 1) * fx;
+      hf[y * W + x] = top * (1 - fy) + bot * fy;
+    }
+  const k = strength * up; // slope per colour texel, whatever the resampling
+  return derivedTexture(key, W, H, (d) => {
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const du = hf[y * W + ((x + 1) % W)] - hf[y * W + ((x - 1 + W) % W)];
+        const dv = hf[((y - 1 + H) % H) * W + x] - hf[((y + 1) % H) * W + x];
+        let nx = -du * k, ny = -dv * k, nz = 1;
+        const l = Math.hypot(nx, ny, nz);
+        nx /= l;
+        ny /= l;
+        nz /= l;
+        const i = (y * W + x) * 4;
+        d[i] = (nx * 0.5 + 0.5) * 255;
+        d[i + 1] = (ny * 0.5 + 0.5) * 255;
+        d[i + 2] = (nz * 0.5 + 0.5) * 255;
+        d[i + 3] = 255;
+      }
+  });
+}
+
+/**
+ * Roughness map (three reads .g and multiplies it by material.roughness, so pair it with roughness 1).
+ * `gloss` > 0: brighter texels are smoother (glazed tile vs grout); < 0: darker texels are smoother
+ * (puddles on asphalt, oily stains).
+ */
+export function roughFrom(src: THREE.Texture, rough: number, gloss: number): THREE.Texture | null {
+  const key = `r:${src.uuid}:${rough}:${gloss}`;
+  const hit = derived.get(key);
+  if (hit) return hit;
+  // lightly blurred: per-texel roughness noise turns highlights into glitter
+  const lum = luminance(src, 1);
+  if (!lum) return null;
+  const { a, w, h } = lum;
+  let mean = 0;
+  for (const v of a) mean += v;
+  mean /= a.length;
+  return derivedTexture(key, w, h, (d) => {
+    for (let i = 0; i < w * h; i++) {
+      const r = Math.max(0.04, Math.min(1, rough - gloss * (a[i] - mean)));
+      d[i * 4] = d[i * 4 + 2] = 0;
+      d[i * 4 + 1] = r * 255;
+      d[i * 4 + 3] = 255;
+    }
+  });
+}
+
 export function disposeTextureCache() {
   for (const t of cache.values()) t.dispose();
   cache.clear();
+  for (const t of derived.values()) t.dispose();
+  derived.clear();
 }

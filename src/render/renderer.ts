@@ -51,17 +51,21 @@ void main() {
   vec2 c = uv - 0.5;
   float r2 = dot(c, c);
 
-  // chromatic aberration grows with damage and towards the edges
-  float ca = (0.6 + uDamage * 3.5) * r2 * 2.0;
+  // offsets below were tuned in 270p pixels: keep them the same size on screen at 360p / 540p
+  vec2 tex = uRes.y / 270.0 / uRes;
+
+  // chromatic aberration grows with damage and towards the edges; faint while unhurt, where its one-pixel
+  // red/blue fringes on thin bright lines (tubes, window frames) read as rendering glitches
+  float ca = (0.3 + uDamage * 3.5) * r2 * 2.0;
   vec3 col;
-  col.r = texture2D(tDiffuse, uv + c * ca / uRes * 6.0).r;
+  col.r = texture2D(tDiffuse, uv + c * ca * tex * 6.0).r;
   col.g = texture2D(tDiffuse, uv).g;
-  col.b = texture2D(tDiffuse, uv - c * ca / uRes * 6.0).b;
+  col.b = texture2D(tDiffuse, uv - c * ca * tex * 6.0).b;
 
   // cheap single-pass bloom: ring of taps around the pixel
   // (offsets are the old loop's vec2(cos(i * 2.39996), sin(i * 2.39996)) * (1.5 + i * 0.55), precomputed)
   vec3 glow = vec3(0.0);
-  #define TAP(x, y) glow += max(texture2D(tDiffuse, uv + vec2(x, y) / uRes).rgb - 0.55, 0.0);
+  #define TAP(x, y) glow += max(texture2D(tDiffuse, uv + vec2(x, y) * tex).rgb - 0.55, 0.0);
   TAP(1.5, 0.0) TAP(-1.51160169, 1.38476002) TAP(0.227290154, -2.59004617) TAP(1.91660666, 2.49982381)
   TAP(-3.64344811, -0.644426167) TAP(3.58592319, -2.28115225) TAP(-1.24601078, 4.63545656) TAP(-2.46596003, -4.74779320)
   TAP(5.54204798, 2.02378464) TAP(-5.96195745, 2.46121216) TAP(2.96671724, -6.34023571) TAP(2.25984907, 7.20385885)
@@ -83,9 +87,10 @@ void main() {
   float edge = smoothstep(0.18, 0.55, sqrt(r2));
   col = mix(col, vec3(0.45, 0.0, 0.02), edge * clamp(uDamage * 0.85 + uLowHealth * 0.25 * (0.6 + 0.4 * sin(uTime * 5.0)), 0.0, 0.85));
 
-  // film grain at low-res pixel scale
+  // film grain at low-res pixel scale, strongest in the mid-tones like real film: a flat amount buries the
+  // near-black shadows this game lives in under crawling noise
   float g = hash(px + fract(uTime * 13.17) * 91.0) - 0.5;
-  col += g * uGrain * (0.6 + 0.4 * (1.0 - l));
+  col += g * uGrain * (0.35 + 0.65 * smoothstep(0.0, 0.35, l));
 
   col += uFlash;
   col = mix(col, uFadeColor, uFade);
@@ -147,7 +152,7 @@ export class RetroRenderer {
   lowW = 480;
   lowH = 270;
   /** Extra FX inputs driven by gameplay. */
-  fx = { damage: 0, lowHealth: 0, fade: 0, flash: 0, grain: 0.07 };
+  fx = { damage: 0, lowHealth: 0, fade: 0, flash: 0, grain: 0.05 };
 
   constructor(canvas: HTMLCanvasElement) {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
@@ -167,13 +172,13 @@ export class RetroRenderer {
         tDiffuse: { value: null },
         uRes: { value: new THREE.Vector2() },
         uTime: { value: 0 },
-        uGrain: { value: 0.07 },
+        uGrain: { value: 0.05 },
         uVignette: { value: 0.55 },
         uDamage: { value: 0 },
         uLowHealth: { value: 0 },
         uFade: { value: 0 },
         uFlash: { value: 0 },
-        uLevels: { value: 40 },
+        uLevels: { value: 64 }, // at 40 the dither crosshatch stood out over the dark gradients on 1080p screens
         uSat: { value: 0.9 },
         uContrast: { value: 1.06 },
         uBloom: { value: 0.6 },
