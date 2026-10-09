@@ -194,6 +194,11 @@ export class Director {
         p.shake = Math.max(p.shake, 0.1 + k * 0.15);
         await ctx.story.wait(1.2);
       }
+      if (this.intrusion !== it) {
+        // the chapter called intrusions off (cutscene, story beat) while it was on its way
+        this.intruding = false;
+        return;
+      }
       ctx.audio.play('bossImpact', { pos: at, vol: 0.9 });
       this.scare('low', 0.7);
       const nw = new Nightwatch(at, Math.atan2(p.pos.x - at.x, p.pos.z - at.z), it.form);
