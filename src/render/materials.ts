@@ -1,20 +1,24 @@
 import * as THREE from 'three';
-import { TEX } from './textures';
+import { TEX, normalFrom, roughFrom } from './textures';
 
 /**
- * Shared uniforms for the PS1-style vertex snapping applied to every lit
- * material. Clip-space positions are quantised to a coarse grid derived from
- * the low-res target.
+ * Shared uniforms for the retro patch applied to every lit material:
+ *  - PS1-style vertex snapping: clip-space positions are quantised to a grid derived from the low-res target.
+ *  - a cheap environment reflection: the level's hemisphere light doubles as a two-colour sky/ground
+ *    environment, so metal, glazed tile and wet floors have something to reflect besides the few point
+ *    lights (with no envMap, metals render nearly black outside a highlight).
  */
 export const retroUniforms = {
   uSnapRes: { value: new THREE.Vector2(480, 270) },
-  uSnapStrength: { value: 0.6 },
+  uSnapStrength: { value: 0.2 },
+  uEnvSpec: { value: 1.6 },
   uTime: { value: 0 },
 };
 
-function patchSnap(shader: THREE.WebGLProgramParametersWithUniforms) {
+function patchRetro(shader: THREE.WebGLProgramParametersWithUniforms) {
   shader.uniforms.uSnapRes = retroUniforms.uSnapRes;
   shader.uniforms.uSnapStrength = retroUniforms.uSnapStrength;
+  shader.uniforms.uEnvSpec = retroUniforms.uEnvSpec;
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nuniform vec2 uSnapRes;\nuniform float uSnapStrength;')
     .replace(
@@ -27,11 +31,29 @@ function patchSnap(shader: THREE.WebGLProgramParametersWithUniforms) {
         gl_Position.xy = ndc * gl_Position.w;
       }`,
     );
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform float uEnvSpec;')
+    .replace(
+      '#include <lights_fragment_maps>',
+      `#include <lights_fragment_maps>
+      #if defined( RE_IndirectSpecular ) && NUM_HEMI_LIGHTS > 0 && !defined( USE_ENVMAP )
+      {
+        // blur the reflection towards the normal with roughness, as three's own IBL lookup does
+        vec3 rv = normalize(mix(reflect(-geometryViewDir, geometryNormal), geometryNormal, material.roughness * material.roughness));
+        float k = smoothstep(0.0, 1.0, 0.5 * dot(rv, hemisphereLights[0].direction) + 0.5);
+        vec3 env = mix(hemisphereLights[0].groundColor, hemisphereLights[0].skyColor, k) * (RECIPROCAL_PI * uEnvSpec);
+        #ifdef USE_COLOR
+        env *= vColor.g; // the baked corner AO occludes reflections too
+        #endif
+        radiance += env;
+      }
+      #endif`,
+    );
 }
 
 /** Same patch reused across every material so three.js shares one program per material type. */
 export function applyRetro<T extends THREE.Material>(m: T): T {
-  m.onBeforeCompile = patchSnap;
+  m.onBeforeCompile = patchRetro;
   return m;
 }
 
@@ -64,6 +86,14 @@ export function stdMat(o: MatOpts = {}): THREE.MeshStandardMaterial {
     side: o.side ?? THREE.FrontSide,
     depthWrite: o.depthWrite ?? true,
   });
+  // relief and gloss derived from the colour map, as its texture asks for (textures.ts RELIEF)
+  const hint = o.map?.userData.relief as { relief: number; blur?: number; gloss?: number } | undefined;
+  if (o.map && hint) m.normalMap = normalFrom(o.map, hint.relief, hint.blur ?? 1);
+  const rough = o.map && hint?.gloss ? roughFrom(o.map, m.roughness, hint.gloss) : null;
+  if (rough) {
+    m.roughnessMap = rough;
+    m.roughness = 1; // the map holds the absolute value
+  }
   return applyRetro(m);
 }
 
@@ -81,8 +111,9 @@ const surfaceCache = new Map<string, Surface>();
 const SURFACE_DEFS: Record<string, () => Surface> = {
   concrete: () => ({ mat: stdMat({ map: TEX.concrete(), roughness: 0.92 }), scale: 2, step: 'concrete' }),
   concreteDark: () => ({ mat: stdMat({ map: TEX.concreteDark(), roughness: 0.95 }), scale: 2.5, step: 'concrete' }),
-  asphalt: () => ({ mat: stdMat({ map: TEX.asphalt(), roughness: 0.32, metalness: 0.15 }), scale: 4, step: 'concrete' }),
-  roadLine: () => ({ mat: stdMat({ map: TEX.roadLine(), roughness: 0.32, metalness: 0.15 }), scale: 4, step: 'concrete' }),
+  // rain-soaked: the roughness map (darker = wetter = smoother) gives the puddles sharper lamp reflections
+  asphalt: () => ({ mat: stdMat({ map: TEX.asphalt(), roughness: 0.26 }), scale: 4, step: 'concrete' }),
+  roadLine: () => ({ mat: stdMat({ map: TEX.roadLine(), roughness: 0.26 }), scale: 4, step: 'concrete' }),
   sidewalk: () => ({ mat: stdMat({ map: TEX.sidewalk(), roughness: 0.5, metalness: 0.05 }), scale: 2, step: 'concrete' }),
   brick: () => ({ mat: stdMat({ map: TEX.brick(), roughness: 0.9 }), scale: 2.5, step: 'concrete' }),
   plaster: () => ({ mat: stdMat({ map: TEX.plaster(), roughness: 0.9 }), scale: 3, step: 'concrete' }),

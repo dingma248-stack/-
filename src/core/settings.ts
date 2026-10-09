@@ -36,6 +36,8 @@ export interface Settings {
   voice: number;
   subtitles: boolean;
   bindings: Record<Action, string>;
+  /** Revision of DEFAULTS the stored values were saved under (see load). */
+  rev: number;
 }
 
 const DEFAULTS: Settings = {
@@ -43,8 +45,8 @@ const DEFAULTS: Settings = {
   invertY: false,
   fov: 80,
   quality: 'medium',
-  resScale: 270,
-  vertexSnap: 0.6,
+  resScale: 360,
+  vertexSnap: 0.2,
   crt: false,
   brightness: 1.1,
   headBob: true,
@@ -55,6 +57,7 @@ const DEFAULTS: Settings = {
   voice: 0.8,
   subtitles: true,
   bindings: { ...DEFAULT_BINDINGS },
+  rev: 2,
 };
 
 const KEY = 'mistport.settings.v1';
@@ -81,7 +84,15 @@ function load(): Settings {
         migrated = true;
       }
     }
-    const s = { ...structuredClone(DEFAULTS), ...parsed, bindings };
+    // rev 2 cut the vertex wobble (at 0.6 props visibly swam off the floor and through each other) and
+    // raised the internal resolution. Any settings change saves every value, so a stored value equal to
+    // the old default is almost always one the player never touched: move it to the new default.
+    if ((parsed.rev ?? 1) < 2) {
+      if (parsed.vertexSnap === 0.6) parsed.vertexSnap = DEFAULTS.vertexSnap;
+      if (parsed.resScale === 270) parsed.resScale = DEFAULTS.resScale;
+      migrated = true;
+    }
+    const s = { ...structuredClone(DEFAULTS), ...parsed, bindings, rev: DEFAULTS.rev };
     if (migrated) localStorage.setItem(KEY, JSON.stringify(s));
     return s;
   } catch {
