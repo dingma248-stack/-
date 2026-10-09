@@ -364,6 +364,15 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
       zhou.face(ctx.player.pos);
       await wait(0.8);
       await say('老周', '……一枪爆头。你小子还没忘本事。');
+      // the M19 by the police car is the only pistol before the last chapter: walking past it
+      // must not send you into the station with just the knife
+      if (!ctx.weapons.owned.includes('pistol')) {
+        ctx.weapons.give('pistol', 12);
+        ctx.inventory.add('ammo9', 12);
+        ctx.ui.weaponGet('pistol');
+        ctx.audio.play('pickup', { bus: 'ui' });
+        await say('老周', '空着手就敢在街上走？拿着，我的备用枪。');
+      }
       await wait(0.6);
       s.camRelease();
     });
