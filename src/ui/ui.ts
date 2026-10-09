@@ -321,8 +321,16 @@ export class UI {
       const ok = prog.chapters.includes(c.id);
       const el = h('div', 'card' + (ok ? '' : ' locked'), `<div class="no">${c.no}</div><div class="tm">${c.time}</div><div class="nm">${ok ? c.name : '——'}</div><div class="ds">${ok ? c.en + ' · ' + c.place : '尚未解锁'}</div>`);
       if (ok) {
+        let armed = false;
         el.addEventListener('mouseenter', () => this.hover());
         el.addEventListener('click', () => {
+          // starting a chapter writes its start checkpoint over the story save: say so first
+          if (readSave() && !armed) {
+            armed = true;
+            this.hover();
+            (el.querySelector('.ds') as HTMLElement).textContent = '再次点击开始 · 将覆盖「继续」的存档';
+            return;
+          }
           this.select();
           this.panelHost.innerHTML = '';
           ctx.game.selectChapter(c.id, 'normal');
