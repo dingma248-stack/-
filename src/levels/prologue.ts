@@ -130,6 +130,12 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   const dockLight = L.light(V(28, 4.6, 5), 0xff5040, 9, 14, 'beacon', { speed: 0.7 });
   const dockLamp = L.tube(28, 9, { kind: 'dying', intensity: 6, distance: 11 });
   L.light(V(34.3, 3, 4.5), 0xd06a40, 3, 6, 'pulse', { speed: 0.3 });
+  // a knocked-over work lamp lights the feeding scene (and the CCTV feed)
+  const lamp = new THREE.Group();
+  bx(lamp, 0.25, 0.25, 0.3, M.yellow(), 0, 0.13, 0, 0.3, 0, 1.4);
+  bx(lamp, 0.18, 0.02, 0.18, M.glow(0xfff0c0), 0.13, 0.13, 0, 0, 0, 1.4);
+  L.place({ g: lamp, cols: [] }, V(27.6, 0, 3.4), 2.2, { collide: false, keep: true });
+  L.light(V(27.2, 0.5, 3.6), 0xffe0a8, 9, 7, 'flicker', { speed: 0.6 });
   const victim = V(25.4, 0, 4.4);
   // victim body: a fallen guard (static ragdoll-like pose)
   const corpse = new THREE.Group();
