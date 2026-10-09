@@ -210,7 +210,7 @@ export class Game {
 
   /** Chapter-select entry: fresh state, chapter supplies a fair loadout. */
   selectChapter(id: string, diff: Difficulty = 'normal') {
-    this.stats = emptyStats();
+    this.stats = { ...emptyStats(), partial: id !== 'prologue' };
     this.killed.clear();
     ctx.inventory.reset();
     ctx.weapons.reset();
@@ -342,9 +342,15 @@ export class Game {
   }
 
   // ------------------------------------------------------------ checkpoints
+  /** Last checkpoint written, kept in memory so a retry works even when localStorage is unavailable. */
+  private lastSave: SaveData | null = null;
+
+  /** Returns false when the browser refused to store it (the retry still works from memory). */
   checkpoint(id: string, manual = false) {
     this.checkpointId = id;
     const p = ctx.player;
+    // count this save in the stats it writes, or Continue forgets it
+    if (manual) this.stats.saves++;
     const data: SaveData = {
       version: 1,
       chapter: this.chapterId,
@@ -359,18 +365,22 @@ export class Game {
       clock: this.clock,
       savedAt: Date.now(),
     };
-    if (manual) this.stats.saves++;
-    writeSave(data);
-    ctx.ui.savePulse();
+    this.lastSave = data;
+    const ok = writeSave(data);
+    if (ok) ctx.ui.savePulse();
+    return ok;
   }
 
   restartCheckpoint() {
-    const s = readSave();
+    const s = readSave() ?? this.lastSave;
     ctx.ui.showDeath(false);
     ctx.ui.showPause(false);
-    if (s && s.chapter === this.chapterId) this.loadSave(s);
-    else if (s) this.loadSave(s);
-    else this.newGame(ctx.difficulty);
+    if (s) {
+      // a retry rewinds the world, not the run's clock
+      const time = this.stats.time;
+      this.loadSave(s);
+      this.stats.time = Math.max(this.stats.time, time);
+    } else this.newGame(ctx.difficulty);
   }
 
   quitToTitle() {
@@ -411,6 +421,9 @@ export class Game {
 
   setOverlayPause(on: boolean) {
     this.overlayPause = on;
+    // the key that opened / closed a document, keypad or choice is used up: E must not reopen
+    // the calendar, Esc must not also pause, Space must not also jump
+    input.consume();
     if (on) {
       this.canvas.classList.add('dim');
       input.exitLock();
@@ -432,6 +445,14 @@ export class Game {
   // ------------------------------------------------------------ death / ending
   onPlayerDeath() {
     this.stats.deaths++;
+    // a retry (or quit + Continue) reloads the checkpoint's stats: the death and the time it cost count there too
+    const s = readSave() ?? this.lastSave;
+    if (s) {
+      s.stats.deaths++;
+      s.stats.time = Math.max(s.stats.time, this.stats.time);
+      writeSave(s);
+      this.lastSave = s;
+    }
     this.state = 'dead';
     this.deathT = 0;
     ctx.audio.play('stingerLow', { vol: 0.9, bus: 'music' });
@@ -469,9 +490,12 @@ export class Game {
     if (!prog.endings.includes(endingId)) prog.endings.push(endingId);
     prog.cleared = true;
     for (const c of CHAPTERS) if (!prog.chapters.includes(c.id)) prog.chapters.push(c.id);
-    if (!prog.bestTime || s.time < prog.bestTime) prog.bestTime = s.time;
+    // a run started from chapter select is not a full clear: it doesn't set the records
     const order = ['C', 'B', 'A', 'S'];
-    if (!prog.bestRank || order.indexOf(rank) > order.indexOf(prog.bestRank)) prog.bestRank = rank;
+    if (!s.partial) {
+      if (!prog.bestTime || s.time < prog.bestTime) prog.bestTime = s.time;
+      if (!prog.bestRank || order.indexOf(rank) > order.indexOf(prog.bestRank)) prog.bestRank = rank;
+    }
     writeProgress(prog);
     ctx.music.only({ theme: 0.8 }, 3);
     ctx.ui.showEnding({ id: endingId, title: text.title, en: text.en, text: text.body, stats: s, rank, unlock });
@@ -481,7 +505,8 @@ export class Game {
   // ------------------------------------------------------------ gameplay helpers
   useHeal(pref?: ItemId) {
     const p = ctx.player;
-    if (this.healCd > 0 || p.dead) return;
+    // the cooldown only stops H-spam; picking an item in the backpack (which freezes the cooldown) is deliberate
+    if ((this.healCd > 0 && !pref) || p.dead) return;
     if (p.health >= PLAYER.maxHealth) {
       ctx.ui.toast('生命值已满');
       return;
@@ -572,7 +597,8 @@ export class Game {
     if (playing || dying) {
       const gdt = dying ? dt * 0.35 : dt;
       ctx.time += gdt;
-      this.stats.time += dt;
+      // a retry keeps the run's clock, so the death screen (which can sit open for minutes) must not add to it
+      if (playing) this.stats.time += dt;
       this.clock = Math.min(this.clockCap, this.clock + (this.clockRate * gdt) / 60);
       if (playing) {
         this.handleInput();
@@ -668,6 +694,8 @@ export class Game {
 
   private toggleInventory() {
     const open = !ctx.ui.inventoryOpen;
+    // the Tab / Esc that toggled the backpack must not also reopen it or open the pause menu
+    input.consume();
     ctx.ui.showInventory(open);
     if (open) {
       input.exitLock();

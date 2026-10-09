@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
 import { input } from '../core/input';
-import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, isReservedKey, type Action } from '../core/settings';
+import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, withKeys, isReservedKey, type Action } from '../core/settings';
 import { WEAPONS, DIFFICULTY, type Difficulty, type WeaponId, type Quality } from '../config';
 import { CHAPTERS, LORE, PURGE_CLOCK, fmtClock, type ChapterMeta } from '../levels/meta';
 import { readProgress, readSave } from '../save/save';
@@ -180,7 +180,7 @@ export class UI {
       <div class="mark">雾港 · 长夜</div>
       <div class="bar"><i></i></div>
       <div class="press">Press any key<small>按任意键开始</small></div>
-      <div class="hint">WASD 移动 · 鼠标瞄准 · 左键射击 · 右键瞄准 · E 交互 · F 手电</div>`;
+      <div class="hint">${withKeys('{forward}{left}{back}{right} 移动 · 鼠标瞄准 · {fire}射击 · {aim}瞄准 · {interact} 交互 · {flashlight} 手电')}</div>`;
     this.bootBar = this.boot.querySelector('.bar i')!;
     this.bootPress = this.boot.querySelector('.press')!;
   }
@@ -273,7 +273,8 @@ export class UI {
     this.panelHost.appendChild(p);
     this.menuNav = null;
     const esc = (e: KeyboardEvent) => {
-      if (e.code === 'Escape' && p.isConnected && !input.capture) {
+      // an Esc that cancelled a key rebind was used up by it (input's capture listener runs first and preventDefaults)
+      if (e.code === 'Escape' && p.isConnected && !input.capture && !e.defaultPrevented) {
         window.removeEventListener('keydown', esc);
         back();
       }
@@ -304,6 +305,12 @@ export class UI {
       cards.appendChild(c);
     });
     p.appendChild(cards);
+    this.navCards(cards);
+  }
+
+  /** Arrow keys + Enter over a panel's cards (panel() itself only handles Esc). */
+  private navCards(cards: HTMLElement) {
+    this.menuNav = { items: [...cards.querySelectorAll<HTMLElement>('.card:not(.locked)')], idx: -1 };
   }
 
   private showChapters() {
@@ -314,8 +321,16 @@ export class UI {
       const ok = prog.chapters.includes(c.id);
       const el = h('div', 'card' + (ok ? '' : ' locked'), `<div class="no">${c.no}</div><div class="tm">${c.time}</div><div class="nm">${ok ? c.name : '——'}</div><div class="ds">${ok ? c.en + ' · ' + c.place : '尚未解锁'}</div>`);
       if (ok) {
+        let armed = false;
         el.addEventListener('mouseenter', () => this.hover());
         el.addEventListener('click', () => {
+          // starting a chapter writes its start checkpoint over the story save: say so first
+          if (readSave() && !armed) {
+            armed = true;
+            this.hover();
+            (el.querySelector('.ds') as HTMLElement).textContent = '再次点击开始 · 将覆盖「继续」的存档';
+            return;
+          }
           this.select();
           this.panelHost.innerHTML = '';
           ctx.game.selectChapter(c.id, 'normal');
@@ -324,6 +339,7 @@ export class UI {
       cards.appendChild(el);
     });
     p.appendChild(cards);
+    this.navCards(cards);
   }
 
   private showGallery() {
@@ -406,6 +422,14 @@ export class UI {
               if (code !== 'Escape' || a === 'pause') {
                 // swap if another action already uses this key
                 const other = (Object.keys(settings.bindings) as Action[]).find((x) => x !== a && settings.bindings[x] === code);
+                if (other && settings.bindings[a] === 'Escape') {
+                  // a swap would hand Esc to the other action, and only pause may use Esc (the browser
+                  // takes it to release the mouse, so no other action could ever see it)
+                  k.classList.add('wait');
+                  k.textContent = `已被「${ACTION_LABELS[other]}」占用`;
+                  setTimeout(render, 1400);
+                  return;
+                }
                 if (other) settings.bindings[other] = settings.bindings[a];
                 settings.bindings[a] = code;
                 saveSettings();
@@ -487,7 +511,7 @@ export class UI {
 
   // =================================================== LOADING / CARD
   showLoading(on: boolean) {
-    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${pick(LORE).replace(/\{(\w+)\}/g, (_m, a: Action) => keyLabel(settings.bindings[a]))}</div><div class="spin">LOADING</div>`;
+    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${withKeys(pick(LORE))}</div><div class="spin">LOADING</div>`;
     this.show(this.loading, on);
   }
 
@@ -745,7 +769,7 @@ export class UI {
   }
 
   toast(text: string) {
-    const t = h('div', 'toast', text);
+    const t = h('div', 'toast', withKeys(text));
     this.toasts.appendChild(t);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
     setTimeout(() => t.remove(), 3300);
@@ -860,7 +884,15 @@ export class UI {
         </div>`;
       this.menu(this.pause.querySelector('.menu')!, [
         { label: '继续', en: 'Resume', act: () => ctx.game.resume() },
-        { label: '设置', en: 'Settings', act: () => this.showSettings(() => this.showPause(true, stats)) },
+        {
+          label: '设置',
+          en: 'Settings',
+          act: () => {
+            // #pause (full-screen, above #panels) would sit over the panel and swallow every click
+            this.show(this.pause, false);
+            this.showSettings(() => this.showPause(true, stats));
+          },
+        },
         { label: '从检查点重试', en: 'Retry checkpoint', act: () => ctx.game.restartCheckpoint() },
         { label: '返回标题', en: 'Quit to title', act: () => ctx.game.quitToTitle() },
       ]);
@@ -902,7 +934,7 @@ export class UI {
     if (this.invTab === 0) this.renderBag(body);
     else if (this.invTab === 1) this.renderMap(body);
     else this.renderDocs(body);
-    const hint = h('div', '', `<div style="position:absolute;bottom:5vh;left:7vw;font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:rgba(233,227,213,.3)">TAB · 关闭　　点击物品查看 / 使用 / 丢弃</div>`);
+    const hint = h('div', '', `<div style="position:absolute;bottom:5vh;left:7vw;font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:rgba(233,227,213,.3)">${keyLabel(settings.bindings.inventory)} · 关闭　　点击物品查看 / 使用 / 丢弃</div>`);
     this.inv.appendChild(hint);
   }
 
@@ -937,7 +969,8 @@ export class UI {
     for (const id of ctx.weapons.owned) {
       const d = WEAPONS[id];
       const mag = ctx.weapons.mags[id];
-      wr.appendChild(h('div', id === ctx.weapons.current ? 'on' : '', `<b>${d.slot || 'V'}</b>${d.name}${d.ammo ? ` · ${mag}` : ''}`));
+      const key = keyLabel(settings.bindings[d.slot ? (`weapon${d.slot}` as Action) : 'melee']);
+      wr.appendChild(h('div', id === ctx.weapons.current ? 'on' : '', `<b>${key}</b>${d.name}${d.ammo ? ` · ${mag}` : ''}`));
     }
     wrap.appendChild(wr);
     body.appendChild(wrap);
@@ -956,7 +989,7 @@ export class UI {
     const s = this.selSlot && inv.slots.includes(this.selSlot) ? this.selSlot : null;
     if (s) {
       const d = ITEMS[s.item];
-      desc.innerHTML = `<div class="nm">${d.name}</div><div class="ds">${d.desc}<br><span style="font-family:var(--mono);font-size:11px;color:var(--bone-faint)">数量 ${s.count} / ${d.stack} · 占用 ${d.w}×${d.h}</span></div>`;
+      desc.innerHTML = `<div class="nm">${d.name}</div><div class="ds">${withKeys(d.desc)}<br><span style="font-family:var(--mono);font-size:11px;color:var(--bone-faint)">数量 ${s.count} / ${d.stack} · 占用 ${d.w}×${d.h}</span></div>`;
       const acts = h('div', 'acts');
       if (s.item === 'bandage' || s.item === 'medkit' || s.item === 'battery') {
         const u = h('span', 'interactive', '使用');
@@ -1019,7 +1052,7 @@ export class UI {
 
   showDoc(d: Doc) {
     this.docOpen = true;
-    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">E / ESC / 点击 · 合上</div>`;
+    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">${keyLabel(settings.bindings.interact)} / ESC / 点击 · 合上</div>`;
     this.show(this.doc, true);
     ctx.game.setOverlayPause(true);
     const opened = performance.now();

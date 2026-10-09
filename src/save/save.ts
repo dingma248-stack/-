@@ -9,6 +9,8 @@ export interface Stats {
   hits: number;
   deaths: number;
   saves: number;
+  /** started from chapter select past the prologue: not a full playthrough, so it sets no records */
+  partial?: boolean;
 }
 
 export interface SaveData {

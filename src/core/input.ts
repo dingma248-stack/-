@@ -52,9 +52,12 @@ class Input {
         cb(code);
         return;
       }
+      for (const l of this.anyKeyListeners) l(code);
+      // without pointer lock a click is the one that (re)captures the mouse or presses a menu
+      // button: it must not also fire / swing / aim in the game
+      if (!this.locked) return;
       this.down.add(code);
       this.pressed.add(code);
-      for (const l of this.anyKeyListeners) l(code);
     });
     window.addEventListener('mouseup', (e) => {
       const code = 'Mouse' + e.button;
@@ -127,6 +130,12 @@ class Input {
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.wheel = 0;
+  }
+
+  /** Drop this frame's press / release edges: an overlay that opened or closed on them used them up. */
+  consume() {
+    this.pressed.clear();
+    this.released.clear();
   }
 
   resetAll() {

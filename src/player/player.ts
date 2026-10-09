@@ -120,7 +120,14 @@ export class Player {
     this.yaw = yaw;
     this.pitch = 0;
     this.crouching = false;
+    this.crouchToggled = false;
     this.crouchT = 0;
+    this.jumpBuf = 0;
+    // a checkpoint restart begins rested, not still winded from the run that ended in death
+    this.stamina = PLAYER.staminaMax;
+    this.exhausted = false;
+    this.staminaDelay = 0;
+    this.stopBreath(); // drop the stale handle (stopAll already silenced it) so the next exhaustion pants again
     this.dead = false;
     this.grabbedBy = null;
     this.control = true;

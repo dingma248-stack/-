@@ -74,9 +74,6 @@ export class Weapons {
   private grenades: Grenade[] = [];
   private grenadeGeo = new THREE.SphereGeometry(0.035, 6, 4);
   private grenadeMat = new THREE.MeshStandardMaterial({ color: 0x4a5a2a, roughness: 0.6 });
-  // stats
-  shots = 0;
-  hits = 0;
   infiniteAmmo = false;
 
   constructor(scene: THREE.Scene) {
@@ -126,7 +123,6 @@ export class Weapons {
     this.last = 'knife';
     this.mags = { knife: 0, pistol: 0, shotgun: 0, magnum: 0, launcher: 0 };
     this.setState('equip', 0.3);
-    this.shots = this.hits = 0;
     this.clearProjectiles();
     this.show(this.current);
   }
@@ -374,7 +370,8 @@ export class Weapons {
     if (!this.infiniteAmmo) this.mags[id]--;
     else this.mags[id] = Math.max(this.mags[id] - 1, 0) || d.mag;
     this.fireCd = d.fireInterval;
-    this.shots++;
+    // the run's stats (pause screen, ending, rank) are what count shots and hits
+    ctx.game.stats.shots++;
     const p = ctx.player;
     const cam = p.camera;
     const vm = this.vms[id];
@@ -419,7 +416,7 @@ export class Weapons {
         if (res.headshot) headshot = true;
       }
       if (anyHit) {
-        this.hits++;
+        ctx.game.stats.hits++;
         ctx.ui.hitmarker(headshot);
         ctx.audio.play(headshot ? 'headmarker' : 'hitmarker', { bus: 'ui', vol: 0.5 });
       }
@@ -531,8 +528,8 @@ export class Weapons {
       ctx.ui.hitmarker(res.headshot);
       p.shake = Math.min(1, p.shake + 0.2);
       p.recoilYaw.kick(this.meleeSide * 1.2);
-      this.hits++;
-      this.shots++;
+      ctx.game.stats.hits++;
+      ctx.game.stats.shots++;
       return;
     }
     const hit = ctx.physics.raycast(cam.position, fwd, d.range, GROUPS.bullet);
@@ -564,8 +561,10 @@ export class Weapons {
       const hit = ctx.physics.raycast(g.pos, dir, len + 0.04, GROUPS.bullet);
       const eh = ctx.enemies.raycast(g.pos, dir, hit ? hit.dist : len + 0.1, 0.25);
       let explodeAt: THREE.Vector3 | null = null;
-      if (eh) explodeAt = g.pos.clone().addScaledVector(dir, eh.dist);
-      else if (hit) {
+      if (eh) {
+        explodeAt = g.pos.clone().addScaledVector(dir, eh.dist);
+        ctx.game.stats.hits++; // a direct hit; splash-only kills don't count toward accuracy
+      } else if (hit) {
         if (g.age > GRENADE.fuseMin) explodeAt = hit.point.clone().addScaledVector(hit.normal, 0.15);
         else {
           // too close: dud bounce
