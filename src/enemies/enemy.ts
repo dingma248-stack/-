@@ -718,10 +718,10 @@ export class Enemy {
       }
     this.sep.x = damp(this.sep.x, sx, 8, dt);
     this.sep.z = damp(this.sep.z, sz, 8, dt);
-    // doors
+    // doors (a leaf still swinging shut is let close first, so it then opens away from us)
     if (this.aware || this.state === 'investigate')
       for (const door of ctx.level!.doors) {
-        if (door.target === 0 && !door.locked && !door.broken && door.center.distanceTo(this.pos.clone().setY(door.center.y)) < 1.3) door.open(this.pos);
+        if (door.target === 0 && door.angle < 0.05 && !door.locked && !door.broken && door.center.distanceTo(this.pos.clone().setY(door.center.y)) < 1.3) door.open(this.pos);
       }
     this.move(dt);
     const moved = Math.hypot(this.pos.x - this.lastPos.x, this.pos.z - this.lastPos.z);
@@ -829,7 +829,10 @@ export class Enemy {
         near = Math.min(near, hit.dist);
         if (hit.tag?.kind === 'door' && hit.dist < 0.6 && (this.aware || this.state === 'investigate')) {
           const door = hit.tag.owner as Door;
-          if (door.target > 0 && !door.broken && door.kind !== 'slide' && door.center.distanceTo(ctx.player.pos.clone().setY(door.center.y)) > 1.8) door.close();
+          // only a leaf swung towards us, and only from its outer face: one already opened away
+          // would be shut again in a loop, and one swinging shut into us shoves us back out of
+          // the doorway, to be reopened the same way
+          if (door.target > 0 && !door.broken && door.kind !== 'slide' && door.dir !== door.awayFrom(this.pos) && door.closesAwayFrom(this.pos) && door.center.distanceTo(ctx.player.pos.clone().setY(door.center.y)) > 1.8) door.close();
         }
       }
       this.reachMax = crawler ? clamp((near - 0.35) / 0.4, 0, 1) : clamp((near - 0.3) / 0.55, 0, 1);

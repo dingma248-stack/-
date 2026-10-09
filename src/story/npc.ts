@@ -194,7 +194,7 @@ export class NPC {
         want = Math.atan2(ahead.x - this.pos.x, ahead.z - this.pos.z);
         // swing shut doors open on the way (they collide now)
         for (const door of ctx.level!.doors)
-          if (door.target === 0 && !door.locked && !door.broken && Math.hypot(door.center.x - this.pos.x, door.center.z - this.pos.z) < 1.3) door.open(this.pos);
+          if (door.target === 0 && door.angle < 0.05 && !door.locked && !door.broken && Math.hypot(door.center.x - this.pos.x, door.center.z - this.pos.z) < 1.3) door.open(this.pos);
         this.curSpeed = damp(this.curSpeed, this.speed, 5, dt);
         this.moveBy(d.normalize().multiplyScalar(Math.min(len, this.curSpeed * dt)), dt);
         this.pos.y = damp(this.pos.y, ctx.level!.nav.heightAt(this.pos), 12, dt);

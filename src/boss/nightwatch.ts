@@ -21,6 +21,7 @@ type NState = 'idle' | 'stalk' | 'punch' | 'stagger' | 'slash' | 'roar' | 'charg
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _c = new THREE.Vector3();
+const _d = new THREE.Vector3();
 
 /**
  * Capsule 2.1 m tall and 0.8 m wide so it fits the 2.2 m x 1 m doorways (the 2.4 m model stoops
@@ -376,7 +377,11 @@ export class Nightwatch implements Hittable {
         // crouched wind-up tracks the player (the landing spot follows), then a committed arc
         if (this.stateT < LEAP_WIND) {
           face = toP;
-          if (!this.hitDone) this.landNear(p.pos);
+          // (only while the lane to it stays clear: a player ducking behind a pillar must not
+          // pull the leap through it)
+          _d.copy(this.leapTo);
+          this.landNear(p.pos);
+          if (!this.laneClear(this.leapTo)) this.leapTo.copy(_d);
           this.yaw += clamp(angleDiff(this.yaw, toP), -3 * dt, 3 * dt);
         } else {
           if (!this.launched) {
@@ -519,10 +524,15 @@ export class Nightwatch implements Hittable {
 
   /** Only leap along a clear lane with room overhead (no flying through lintels or ceilings). */
   private canLeapTo(p: THREE.Vector3) {
-    for (const h of [0.5, 1.9]) if (!ctx.physics.lineOfSight(_a.set(this.pos.x, this.pos.y + h, this.pos.z), _b.set(p.x, p.y + h, p.z))) return false;
+    if (!this.laneClear(p)) return false;
     this.leapFrom.copy(this.pos);
     this.landNear(p);
     return this.arcRoom() >= 0.4;
+  }
+
+  private laneClear(p: THREE.Vector3) {
+    for (const h of [0.5, 1.9]) if (!ctx.physics.lineOfSight(_a.set(this.pos.x, this.pos.y + h, this.pos.z), _b.set(p.x, p.y + h, p.z))) return false;
+    return true;
   }
 
   /** Apex height that keeps the 2.4 m body under every ceiling between leapFrom and leapTo. */
