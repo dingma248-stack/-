@@ -22,7 +22,9 @@ npm run preview    # 预览构建结果
 
 **提示**：进入游戏后点击画面锁定鼠标；觉得太暗可在 **设置 → 画面 → 亮度** 中调节。
 
-**部署**：推送到 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布到 GitHub Pages（需在仓库 Settings → Pages 中把 Source 设为 *GitHub Actions*）。
+**在线游玩**：<https://dingma248-stack.github.io/-/>
+
+**部署**：推送到默认分支（或 `main`）后，`.github/workflows/deploy.yml` 会自动构建并发布到 GitHub Pages（需在仓库 Settings → Pages 中把 Source 设为 *GitHub Actions*）。
 
 ---
 
