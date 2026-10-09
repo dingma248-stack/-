@@ -92,7 +92,10 @@ export class Props {
     this.group.add(mesh);
     const half = axis === 'x' ? new THREE.Vector3(w / 2, h / 2, 0.03) : new THREE.Vector3(0.03, h / 2, w / 2);
     const tag: ColliderTag = { kind: 'prop', surface: 'glass' };
-    const { body } = ctx.physics.addKinematicBox(center, half, tag, GROUPS.static);
+    // fixed, not kinematic: the character controller takes a touching kinematic body for a moving
+    // platform and cancels any move along its normal, so you couldn't step back off the ledge under it
+    const { body, collider } = ctx.physics.addStaticBox(center, half, 'glass');
+    ctx.physics.tag(collider, tag);
     const pane: Pane = { mesh, body, center: center.clone(), normal: axis === 'x' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(1, 0, 0), w, h, alive: true, onBreak };
     tag.owner = pane;
     this.panes.push(pane);
