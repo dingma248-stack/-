@@ -3,7 +3,7 @@ import { ctx } from '../core/ctx';
 import { bus } from '../core/events';
 import { Enemy, type EnemyKind, type SpawnOpts, type HitResult } from './enemy';
 import type { Part } from './rig';
-import { QUALITY, type WeaponId } from '../config';
+import { PLAYER, QUALITY, type WeaponId } from '../config';
 import { settings } from '../core/settings';
 import type { RAPIER } from '../physics/world';
 
@@ -105,11 +105,33 @@ export class EnemyManager {
     while (this.corpses.length > 24) this.corpses.shift()!.dispose();
   }
 
+  /**
+   * Keep a walker's step (`d`, from its current position `at`) out of the other enemies and the
+   * player, treated as circles. The character controller only handles the level: its autostep
+   * reads the round bottom of a neighbour's capsule as a stair and pops the walker 15 cm over it,
+   * and it sees neighbours where the last 60 Hz world step left them. An existing overlap is
+   * eased apart instead of snapped.
+   */
+  keepApart(self: unknown, at: THREE.Vector3, r: number, d: { x: number; z: number }, dt: number) {
+    const fit = (ox: number, oy: number, oz: number, rr: number) => {
+      if (Math.abs(oy - at.y) > 1.2) return;
+      const px = at.x + d.x - ox, pz = at.z + d.z - oz, d1 = Math.hypot(px, pz);
+      const d0 = Math.hypot(at.x - ox, at.z - oz);
+      const want = d0 >= rr ? rr : Math.min(rr, d0 + 1.5 * dt);
+      if (d1 >= want || d1 < 1e-4) return;
+      d.x += (px / d1) * (want - d1);
+      d.z += (pz / d1) * (want - d1);
+    };
+    for (const o of this.list) if (o !== self && !o.dead && !o.onCeiling && o.state !== 'dormant') fit(o.pos.x, o.pos.y, o.pos.z, r + o.radius + 0.02);
+    const p = ctx.player;
+    if (!p.dead) fit(p.pos.x, p.pos.y, p.pos.z, r + PLAYER.radius + 0.03);
+  }
+
   update(dt: number) {
     for (const e of this.list) e.update(dt);
     for (const b of this.bosses) b.update?.(dt);
     for (const c of this.corpses) {
-      c.ragdoll?.update(dt);
+      c.updateCorpse(dt);
       if (c.ragdoll && !c.ragdoll.frozen && c.ragdoll.age > 12) c.ragdoll.freeze();
     }
   }

@@ -200,6 +200,23 @@ export function quadruped(seed: number): Rig {
   return { root, hips, segs, headMesh: head, height: 0.8 * s, mats: [fur] };
 }
 
+const _p = new THREE.Vector3();
+
+/**
+ * Shift the hips so the lowest of the given limb ends (object + local point) rests at
+ * `groundY`: angled stance legs otherwise leave a body hovering at the ends of a stride,
+ * and splayed limbs sink into the floor. The shift is clamped to [lo, hi]. `up` = -1 for a
+ * rig hanging upside down from a ceiling at `groundY`.
+ */
+export function plant(rig: Rig, ends: [THREE.Object3D, THREE.Vector3][], groundY: number, lo: number, hi: number, up = 1) {
+  rig.root.updateMatrixWorld(true);
+  let min = Infinity;
+  for (const [o, v] of ends) min = Math.min(min, up * o.localToWorld(_p.copy(v)).y);
+  const d = Math.min(hi, Math.max(lo, up * groundY - min));
+  rig.hips.position.y += d;
+  return d;
+}
+
 /** World-space endpoints for a segment's hit capsule. */
 export function segEnds(sg: Seg, a: THREE.Vector3, b: THREE.Vector3) {
   sg.pivot.updateWorldMatrix(true, true);

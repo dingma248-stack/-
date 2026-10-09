@@ -61,7 +61,7 @@ class Tentacle implements Hittable {
     }
     if (this.age < 1.2) {
       // ground bulge warning
-      if (Math.random() < 0.5) ctx.particles.dust(this.pos.clone().add(V3(rand(-0.4, 0.4), 0.05, rand(-0.4, 0.4))), V3(0, 1, 0), 0x5a2020);
+      if (Math.random() < dt * 30) ctx.particles.dust(this.pos.clone().add(V3(rand(-0.4, 0.4), 0.05, rand(-0.4, 0.4))), V3(0, 1, 0), 0x5a2020);
       return;
     }
     if (!this.erupted) {
@@ -445,7 +445,7 @@ export class HeartBoss implements Hittable {
         break;
       case 'dying':
         wantOpen = 1;
-        if (Math.random() < 0.3) ctx.particles.gore(this.heartPos().add(V3(rand(-1, 1), rand(-1, 1), rand(-0.5, 0.5))), V3(0, 1, 0), this.pos.y);
+        if (Math.random() < dt * 18) ctx.particles.gore(this.heartPos().add(V3(rand(-1, 1), rand(-1, 1), rand(-0.5, 0.5))), V3(0, 1, 0), this.pos.y);
         this.root.position.y = this.pos.y - smoothstep(0.5, 4, this.stateT) * 2.5;
         if (this.stateT > 4) {
           this.dead = true;
@@ -492,7 +492,7 @@ export class HeartBoss implements Hittable {
       a.pos.add(step);
       a.mesh.position.copy(a.pos);
       a.mesh.rotation.x += dt * 8;
-      if (Math.random() < 0.6) ctx.particles.acid(a.pos, V3(0, 0.2, 0), a.pos.y - 3);
+      if (Math.random() < dt * 36) ctx.particles.acid(a.pos, V3(0, 0.2, 0), a.pos.y - 3);
       const nearP = a.pos.distanceTo(p.camera.position.clone().setY(p.pos.y + 1)) < 0.8;
       if (hit || nearP || a.age > 4) {
         const at = hit ? hit.point : a.pos.clone();

@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
 import { RAPIER, GROUPS, groups, G } from '../physics/world';
-import { humanoid, segEnds, type Rig, type Part } from '../enemies/rig';
+import { humanoid, segEnds, plant, type Rig, type Part } from '../enemies/rig';
 import { bx } from '../levels/props';
 import { stdMat, M } from '../render/materials';
 import { TEX } from '../render/textures';
 import { angleDiff, clamp, damp, rand, rayCapsule, raySphere, smoothstep } from '../core/math';
-import { DIFFICULTY, type WeaponId } from '../config';
+import { DIFFICULTY, PLAYER, type WeaponId } from '../config';
 import type { Hittable } from '../enemies/manager';
 import type { HitResult } from '../enemies/enemy';
 
@@ -20,6 +20,20 @@ type NState = 'idle' | 'stalk' | 'punch' | 'stagger' | 'slash' | 'roar' | 'charg
 
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
+const _c = new THREE.Vector3();
+
+/**
+ * Capsule 2.1 m tall and 0.8 m wide so it fits the 2.2 m x 1 m doorways (the 2.4 m model stoops
+ * through them); the old 2.4 m capsule wedged under every door lintel.
+ */
+const RADIUS = 0.4;
+const HALF = 0.65;
+const CENTER = HALF + RADIUS;
+/** crouch before a leap: long enough to read and sidestep */
+const LEAP_WIND = 0.45;
+const LEAP_LAND = 1.2;
+/** boot sole in shin space (rig scale 1.32) */
+const SOLE = new THREE.Vector3(0, -0.475 * 1.32, 0.05 * 1.32);
 
 export class Nightwatch implements Hittable {
   readonly rig: Rig;
@@ -46,6 +60,9 @@ export class Nightwatch implements Hittable {
   private chargeDir = new THREE.Vector3();
   private leapFrom = new THREE.Vector3();
   private leapTo = new THREE.Vector3();
+  /** apex height of the current leap, limited by the ceilings along it (set at take-off) */
+  private leapArc = 2.6;
+  private launched = false;
   private grounded = true;
   private blade: THREE.Group | null = null;
   private coatTail: THREE.Object3D | null = null;
@@ -59,6 +76,14 @@ export class Nightwatch implements Hittable {
   onDamaged?: (hp: number) => void;
   readonly form: 1 | 2;
   private flashT = 0;
+  /** where the kinematic body was last sent (it only arrives on the next 60 Hz world step) */
+  private bodyNext: { x: number; y: number; z: number } | null = null;
+  private yawVel = 0;
+  private gait = 0;
+  private lastPos = new THREE.Vector3();
+  /** 0..1 stoop under low ceilings / doorways */
+  private duck = 0;
+  private headYaw = 0;
 
   constructor(pos: THREE.Vector3, yaw: number, form: 1 | 2) {
     this.form = form;
@@ -96,11 +121,11 @@ export class Nightwatch implements Hittable {
     }
     (ctx.level?.group ?? ctx.enemies.group).add(this.rig.root);
     this.pos.copy(pos);
+    this.lastPos.copy(pos);
     this.yaw = yaw;
-    const r = 0.45, halfH = 0.75;
     const world = ctx.physics.world;
-    this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pos.x, pos.y + halfH + r, pos.z));
-    this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(halfH, r).setCollisionGroups(GROUPS.enemy), this.body);
+    this.body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(pos.x, pos.y + CENTER, pos.z));
+    this.collider = world.createCollider(RAPIER.ColliderDesc.capsule(HALF, RADIUS).setCollisionGroups(GROUPS.enemy), this.body);
     ctx.physics.tag(this.collider, { kind: 'enemy', owner: this });
     ctx.physics.track(this.body);
     const mul = DIFFICULTY[ctx.difficulty].enemyHp;
@@ -113,6 +138,7 @@ export class Nightwatch implements Hittable {
     this.state = s;
     this.stateT = 0;
     this.hitDone = false;
+    this.launched = false;
   }
 
   /** Begin hunting the player. */
@@ -234,24 +260,30 @@ export class Nightwatch implements Hittable {
         if (los) {
           this.path = [p.pos.clone()];
           this.pathIdx = 0;
+          this.repath = 0; // re-plan as soon as sight is lost
         } else if (!this.path || this.repath <= 0) {
           this.path = ctx.level!.nav.findPath(this.pos, p.pos, 4000);
           this.pathIdx = 0;
           this.repath = 0.5;
         }
-        if (los) face = toP;
+        if (!this.path && los) face = toP;
         if (this.attackCd <= 0 && !p.dead) {
-          if (this.form === 1 && dist < 2.4) this.setState('punch');
-          else if (this.form === 2) {
-            if (dist < 2.6) this.setState('slash');
-            else if (los && dist > 5 && dist < 13 && Math.random() < 0.012) {
+          if (this.form === 1 && dist < 2.4) {
+            this.setState('punch');
+            ctx.audio.play('growl', { pos: this.headPos(), vol: 1, rate: 0.55 });
+          } else if (this.form === 2) {
+            if (dist < 2.6) {
+              this.setState('slash');
+              ctx.audio.play('growl', { pos: this.headPos(), vol: 1, rate: 0.65 });
+            }
+            else if (los && dist > 5 && dist < 13 && Math.random() < dt * 0.72) {
               this.setState('roar');
               ctx.audio.play('bossRoar', { pos: this.headPos(), vol: 1 });
-            } else if (dist > 4 && dist < 11 && Math.random() < 0.006 && ctx.physics.lineOfSight(this.headPos(), p.camera.position)) {
+            } else if (dist > 4 && dist < 11 && Math.random() < dt * 0.36 && ctx.physics.lineOfSight(this.headPos(), p.camera.position) && this.canLeapTo(p.pos)) {
               this.leapFrom.copy(this.pos);
-              this.leapTo.copy(p.pos);
+              this.landNear(p.pos);
               this.setState('leap');
-              ctx.audio.play('whoosh', { pos: this.pos, vol: 1, rate: 0.6 });
+              ctx.audio.play('bossRoar', { pos: this.headPos(), vol: 0.8, rate: 1.25 });
             }
           }
         }
@@ -326,7 +358,7 @@ export class Nightwatch implements Hittable {
         }
         break;
       case 'shocked':
-        if (Math.random() < 0.5) ctx.particles.electric(this.partPos('torso').add(V3(rand(-0.4, 0.4), rand(-0.6, 0.6), rand(-0.4, 0.4))), 4);
+        if (Math.random() < dt * 30) ctx.particles.electric(this.partPos('torso').add(V3(rand(-0.4, 0.4), rand(-0.6, 0.6), rand(-0.4, 0.4))), 4);
         this.flashT = Math.sin(this.stateT * 40) > 0 ? 0.05 : 0;
         if (this.stateT > 2.6) {
           if (this.hp <= 0) this.setState('defeated');
@@ -341,14 +373,23 @@ export class Nightwatch implements Hittable {
         }
         break;
       case 'leap': {
-        const k = clamp(this.stateT / 1.0, 0, 1);
-        if (this.stateT < 0.25) face = toP;
-        else {
-          this.pos.lerpVectors(this.leapFrom, this.leapTo, smoothstep(0.25, 1, this.stateT));
-          this.pos.y += Math.sin(clamp((this.stateT - 0.25) / 0.75, 0, 1) * Math.PI) * 2.6;
-          this.body.setNextKinematicTranslation({ x: this.pos.x, y: this.pos.y + 1.2, z: this.pos.z });
+        // crouched wind-up tracks the player (the landing spot follows), then a committed arc
+        if (this.stateT < LEAP_WIND) {
+          face = toP;
+          if (!this.hitDone) this.landNear(p.pos);
+          this.yaw += clamp(angleDiff(this.yaw, toP), -3 * dt, 3 * dt);
+        } else {
+          if (!this.launched) {
+            this.launched = true;
+            this.leapArc = this.arcRoom();
+            ctx.audio.play('whoosh', { pos: this.pos, vol: 1, rate: 0.6 });
+          }
+          this.pos.lerpVectors(this.leapFrom, this.leapTo, smoothstep(LEAP_WIND, LEAP_LAND, this.stateT));
+          this.pos.y += Math.sin(clamp((this.stateT - LEAP_WIND) / (LEAP_LAND - LEAP_WIND), 0, 1) * Math.PI) * this.leapArc;
+          this.bodyNext = { x: this.pos.x, y: this.pos.y + CENTER, z: this.pos.z };
+          this.body.setNextKinematicTranslation(this.bodyNext);
         }
-        if (k >= 1 && !this.hitDone) {
+        if (this.stateT >= LEAP_LAND && !this.hitDone) {
           this.hitDone = true;
           ctx.audio.play('bossImpact', { pos: this.pos, vol: 1 });
           ctx.particles.dust(this.pos.clone().setY(this.pos.y + 0.1), V3(0, 1, 0), 0x6a645a);
@@ -360,10 +401,11 @@ export class Nightwatch implements Hittable {
           }
           ctx.props.blast(this.pos, 4, 10);
         }
-        if (this.stateT > 1.6) {
+        if (this.stateT > LEAP_LAND + 0.4) {
           this.attackCd = 1.4;
           this.setState('stalk');
         }
+        this.lastPos.copy(this.pos);
         this.sync(dt);
         return;
       }
@@ -391,33 +433,122 @@ export class Nightwatch implements Hittable {
         break;
     }
     // ---- movement ----
+    let want = face;
     if (this.state === 'stalk' && speed > 0 && this.path) {
-      const wp = this.path[Math.min(this.pathIdx, this.path.length - 1)];
-      const to = _a.set(wp.x - this.pos.x, 0, wp.z - this.pos.z);
-      if (to.length() < 0.5 && this.pathIdx < this.path.length - 1) this.pathIdx++;
-      const want = Math.atan2(to.x, to.z);
-      this.yaw += clamp(angleDiff(this.yaw, want), -2.5 * dt, 2.5 * dt);
-      const fw = V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).multiplyScalar(speed);
-      this.vel.x = damp(this.vel.x, fw.x, 4, dt);
-      this.vel.z = damp(this.vel.z, fw.z, 4, dt);
+      // follow a point a little way down the path: corners become curves; the masked head
+      // keeps turning to the player while the body walks
+      const left = this.steerPoint(1.6, _c);
+      const h = Math.atan2(_c.x - this.pos.x, _c.z - this.pos.z);
+      want = h;
+      const s = speed * clamp(1.3 - Math.abs(angleDiff(this.yaw, h)) / 1.2, 0.35, 1) * (1 - 0.2 * this.duck);
+      // speed eases along the facing; sideways momentum bleeds off (no skidding out of turns)
+      const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+      const along = this.vel.x * fx + this.vel.z * fz;
+      const sp = damp(along, this.retreat ? s * clamp(left / 1.2, 0.3, 1) : s, 4, dt), keep = Math.exp(-10 * dt);
+      this.vel.set(fx * sp + (this.vel.x - fx * along) * keep, 0, fz * sp + (this.vel.z - fz * along) * keep);
     } else if (this.state !== 'charge' && this.state !== 'stagger') {
       this.vel.x = damp(this.vel.x, 0, 6, dt);
       this.vel.z = damp(this.vel.z, 0, 6, dt);
     }
     if (this.state === 'stagger' && this.stateT < 0.05) this.vel.copy(V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).multiplyScalar(2));
-    if (face !== null) this.yaw += clamp(angleDiff(this.yaw, face), -3 * dt, 3 * dt);
+    // heavy turning: eases in and out instead of pivoting at a constant rate
+    const turn = want === face ? 3 : 2.5;
+    const target = want === null || this.state === 'charge' ? 0 : clamp(angleDiff(this.yaw, want) * 3.5, -turn, turn);
+    this.yawVel = damp(this.yawVel, target, 10, dt);
+    this.yaw += this.yawVel * dt;
     // doors in the way get smashed off their hinges
     if (this.active && (this.state === 'stalk' || this.state === 'charge'))
       for (const door of ctx.level!.doors) {
-        if (door.broken || door.angle > 1.2) continue;
+        if (door.broken) continue;
         const dd = door.center.clone().setY(this.pos.y).distanceTo(this.pos);
-        if (dd < 1.7) {
+        // an open leaf it walks into goes too (it used to wedge the boss in the doorway)
+        const lt = door.body.translation();
+        if ((door.angle <= 1.2 && dd < 1.7) || (door.kind !== 'slide' && Math.hypot(lt.x - this.pos.x, lt.z - this.pos.z) < 1.15)) {
           door.blast(V3(Math.sin(this.yaw), 0, Math.cos(this.yaw)));
           ctx.player.shake = Math.max(ctx.player.shake, 0.6);
         }
       }
     this.move(dt);
+    // it bulldozes through the infected rather than walking through them
+    if (this.state === 'stalk' || this.state === 'charge')
+      for (const e of ctx.enemies.list) {
+        if (e.dead || e.onCeiling || e.state === 'dormant') continue;
+        const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, dd = dx * dx + dz * dz;
+        if (dd < 0.9 * 0.9 && dd > 1e-4) e.shove(_a.set(dx, 0, dz).normalize(), this.state === 'charge' ? 4 : 2);
+      }
+    const moved = Math.hypot(this.pos.x - this.lastPos.x, this.pos.z - this.lastPos.z);
+    this.gait = damp(this.gait, Math.min(moved / Math.max(dt, 1e-4), 14), 10, dt);
+    this.lastPos.copy(this.pos);
     this.sync(dt);
+  }
+
+  /** Point `look` metres ahead along the remaining path; returns the distance left to its end. */
+  private steerPoint(look: number, out: THREE.Vector3) {
+    const path = this.path!;
+    // drop waypoints reached, or already walked past on the way to the next
+    while (this.pathIdx < path.length - 1) {
+      const a = path[this.pathIdx], b = path[this.pathIdx + 1];
+      const dx = a.x - this.pos.x, dz = a.z - this.pos.z, dd = dx * dx + dz * dz;
+      if (dd < 0.6 * 0.6 || (dd < 1 && (b.x - a.x) * -dx + (b.z - a.z) * -dz > 0)) this.pathIdx++;
+      else break;
+    }
+    let px = this.pos.x, pz = this.pos.z, need = look, total = 0, found = false;
+    for (let i = this.pathIdx; i < path.length; i++) {
+      const w = path[i];
+      const sx = w.x - px, sz = w.z - pz, sl = Math.hypot(sx, sz);
+      if (!found && sl >= need) {
+        out.set(px + (sx / sl) * need, w.y, pz + (sz / sl) * need);
+        // a look-ahead wrapping a corner must not pull the body into the corner
+        if (i > this.pathIdx && !ctx.physics.lineOfSight(_a.set(this.pos.x, this.pos.y + 0.5, this.pos.z), _b.set(out.x, this.pos.y + 0.5, out.z))) out.copy(path[this.pathIdx]);
+        found = true;
+      } else if (!found) need -= sl;
+      total += sl;
+      px = w.x;
+      pz = w.z;
+    }
+    if (!found) out.copy(path[path.length - 1]);
+    return total;
+  }
+
+  /** Leap target: land just short of the player, not on top of them. */
+  private landNear(p: THREE.Vector3) {
+    const dx = p.x - this.leapFrom.x, dz = p.z - this.leapFrom.z, d = Math.hypot(dx, dz) || 1;
+    const k = Math.max(0, d - 1.1) / d;
+    this.leapTo.set(this.leapFrom.x + dx * k, p.y, this.leapFrom.z + dz * k);
+  }
+
+  /** Only leap along a clear lane with room overhead (no flying through lintels or ceilings). */
+  private canLeapTo(p: THREE.Vector3) {
+    for (const h of [0.5, 1.9]) if (!ctx.physics.lineOfSight(_a.set(this.pos.x, this.pos.y + h, this.pos.z), _b.set(p.x, p.y + h, p.z))) return false;
+    this.leapFrom.copy(this.pos);
+    this.landNear(p);
+    return this.arcRoom() >= 0.4;
+  }
+
+  /** Apex height that keeps the 2.4 m body under every ceiling between leapFrom and leapTo. */
+  private arcRoom() {
+    const lvl = ctx.level!;
+    const a = this.leapFrom, b = this.leapTo;
+    const n = Math.ceil(a.distanceTo(b) / 0.5) + 1;
+    let room = Infinity;
+    for (let i = 0; i <= n; i++) {
+      _c.lerpVectors(a, b, i / n);
+      const c = lvl.cellAt(_c);
+      if (c && c.t === 'floor' && c.cy !== null) room = Math.min(room, c.cy - _c.y);
+    }
+    return clamp(room - 2.5, 0, 2.6);
+  }
+
+  /** Lowest ceiling over the next stride or so (doorways are 2.2 m). */
+  private headroom() {
+    const lvl = ctx.level!;
+    let room = Infinity;
+    const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
+    for (const k of [0, 0.6, 1.2]) {
+      const c = lvl.cellAt(_a.set(this.pos.x + fx * k, this.pos.y, this.pos.z + fz * k));
+      if (c && c.t === 'floor' && c.cy !== null) room = Math.min(room, c.cy - this.pos.y);
+    }
+    return room;
   }
 
   /** cells with floor below this height count as a pit (subway tracks) */
@@ -431,8 +562,25 @@ export class Nightwatch implements Hittable {
     const kcc = ctx.enemies.kcc;
     if (this.grounded) this.vy = -1;
     else this.vy -= 18 * dt;
-    const desired = { x: this.vel.x * dt, y: this.vy * dt, z: this.vel.z * dt };
-    kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, groups(0xffff, G.STATIC | G.PROP | G.PLAYER));
+    // sweep from where the body physically is plus the motion still pending: between 60 Hz world
+    // steps the body has not moved yet, and overwriting its target each frame stalls it on fast displays
+    const t = this.body.translation();
+    const q = this.bodyNext;
+    // the player is kept out as a circle: autostep would ride up the round bottom of their capsule
+    const step = { x: this.vel.x * dt, z: this.vel.z * dt };
+    const p = ctx.player;
+    if (!p.dead && Math.abs(p.pos.y - this.pos.y) < 1.5) {
+      const rr = RADIUS + PLAYER.radius + 0.03;
+      const px = this.pos.x + step.x - p.pos.x, pz = this.pos.z + step.z - p.pos.z, d1 = Math.hypot(px, pz);
+      const d0 = Math.hypot(this.pos.x - p.pos.x, this.pos.z - p.pos.z);
+      const want = d0 >= rr ? rr : Math.min(rr, d0 + 1.5 * dt);
+      if (d1 < want && d1 > 1e-4) {
+        step.x += (px / d1) * (want - d1);
+        step.z += (pz / d1) * (want - d1);
+      }
+    }
+    const desired = { x: (q ? q.x - t.x : 0) + step.x, y: (q ? q.y - t.y : 0) + this.vy * dt, z: (q ? q.z - t.z : 0) + step.z };
+    kcc.computeColliderMovement(this.collider, desired, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, groups(0xffff, G.STATIC | G.PROP));
     const mv = kcc.computedMovement();
     this.grounded = kcc.computedGrounded();
     // charging into a wall stuns it
@@ -442,17 +590,19 @@ export class Nightwatch implements Hittable {
       ctx.player.shake = Math.max(ctx.player.shake, 0.9);
       ctx.particles.dust(this.headPos(), V3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)), 0x8a857a);
     }
-    const t = this.body.translation();
     const n = { x: t.x + mv.x, y: t.y + mv.y, z: t.z + mv.z };
     this.body.setNextKinematicTranslation(n);
-    this.pos.set(n.x, n.y - 0.75 - 0.45, n.z);
+    this.bodyNext = n;
+    this.pos.set(n.x, n.y - CENTER, n.z);
   }
 
   warp(p: THREE.Vector3, yaw?: number) {
     this.pos.copy(p);
     if (yaw !== undefined) this.yaw = yaw;
-    this.body.setTranslation({ x: p.x, y: p.y + 1.2, z: p.z }, true);
-    this.body.setNextKinematicTranslation({ x: p.x, y: p.y + 1.2, z: p.z });
+    this.body.setTranslation({ x: p.x, y: p.y + CENTER, z: p.z }, true);
+    this.body.setNextKinematicTranslation({ x: p.x, y: p.y + CENTER, z: p.z });
+    this.bodyNext = null;
+    this.lastPos.copy(p);
     this.vel.set(0, 0, 0);
     this.sync(0);
   }
@@ -463,7 +613,7 @@ export class Nightwatch implements Hittable {
     this.leapFrom.copy(a);
     this.leapTo.copy(b);
     this.setState('leap');
-    this.stateT = 0.25;
+    this.stateT = LEAP_WIND;
     this.hitDone = false;
   }
 
@@ -485,9 +635,11 @@ export class Nightwatch implements Hittable {
     const S = r.segs;
     r.root.position.copy(this.pos);
     r.root.rotation.set(0, this.yaw, 0);
-    const hs = Math.hypot(this.vel.x, this.vel.z);
+    // stride follows the ground actually covered, so the boots don't skate
+    const hs = this.gait;
     const charging = this.state === 'charge';
-    this.phase += dt * hs * (charging ? 1.3 : 2.1);
+    const airborne = this.state === 'leap' && this.stateT >= LEAP_WIND && this.stateT < LEAP_LAND;
+    this.phase += dt * (charging ? hs : 1.6 * Math.max(hs, 3)) * clamp(hs * 2, 0, 1) * (airborne ? 0 : 1);
     for (const k of Object.keys(S) as Part[]) {
       S[k].sx.update(0, dt);
       S[k].sz.update(0, dt);
@@ -500,18 +652,25 @@ export class Nightwatch implements Hittable {
       const d = this.pos.distanceTo(ctx.player.pos);
       if (d < 14) ctx.player.shake = Math.max(ctx.player.shake, (1 - d / 14) * 0.55);
     }
+    // stoop under doorways and low ceilings instead of putting the head through them
+    const room = this.headroom();
+    this.duck = damp(this.duck, airborne ? 0 : clamp((2.55 - room) / 0.3, 0, 1), 6, dt);
+    const p = ctx.player;
+    const look = this.state === 'stalk' && this.active && !this.retreat ? clamp(angleDiff(this.yaw, Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z)), -1, 1) : 0;
+    this.headYaw = damp(this.headYaw, look, 4, dt);
     const amp = clamp(hs / 3, 0, 1) * (charging ? 0.9 : 0.55);
     const sw = Math.sin(this.phase) * amp;
     const t = ctx.time;
-    r.hips.position.y = 0.92 * 1.32 - Math.abs(Math.sin(this.phase)) * 0.05 * amp;
-    S.legL.pivot.rotation.set(sw + S.legL.sx.value, 0, 0);
-    S.legR.pivot.rotation.set(-sw + S.legR.sx.value, 0, 0);
-    S.legL.joint!.rotation.x = Math.max(0, -Math.sin(this.phase + 0.5)) * amp * 1.4;
-    S.legR.joint!.rotation.x = Math.max(0, Math.sin(this.phase + 0.5)) * amp * 1.4;
+    const duck = this.duck;
+    r.hips.position.y = 0.92 * 1.32;
+    let thighL = sw, thighR = -sw;
+    let kneeL = Math.max(0, -Math.sin(this.phase + 0.5)) * amp * 1.4;
+    let kneeR = Math.max(0, Math.sin(this.phase + 0.5)) * amp * 1.4;
     let lean = 0.08 + (charging ? 0.55 : 0);
     let aL = -sw * 0.5, aR = sw * 0.5, zL = -0.12, zR = 0.12, eL = 0.25, eR = 0.25;
     let headX = 0;
     let twist = Math.sin(this.phase) * 0.06;
+    let plantFeet = true;
     const k = this.stateT;
     switch (this.state) {
       case 'punch': {
@@ -520,7 +679,11 @@ export class Nightwatch implements Hittable {
         zR = 0.4 * wind * (1 - hit);
         eR = 1.6 * wind * (1 - hit) + 0.1;
         twist = -0.5 * wind * (1 - hit) + 0.4 * hit * (1 - back);
-        lean += 0.25 * hit * (1 - back);
+        lean += -0.12 * wind * (1 - hit) + 0.25 * hit * (1 - back);
+        // weight shifts back onto the rear foot, then steps into the blow
+        thighL = -0.35 * wind * (1 - back);
+        thighR = 0.25 * wind * (1 - back);
+        kneeL = 0.3 * wind * (1 - back);
         break;
       }
       case 'slash': {
@@ -529,6 +692,8 @@ export class Nightwatch implements Hittable {
         zR = 1.2 * wind * (1 - hit) - 0.9 * hit * (1 - back);
         twist = -0.7 * wind * (1 - hit) + 0.7 * hit * (1 - back);
         eR = 0.1;
+        thighL = -0.3 * wind * (1 - back);
+        kneeL = 0.4 * wind * (1 - back);
         break;
       }
       case 'roar':
@@ -539,6 +704,10 @@ export class Nightwatch implements Hittable {
         zL = -0.8;
         zR = 0.8;
         twist = Math.sin(t * 30) * 0.03;
+        // braces low before the charge
+        thighL = -0.4 * smoothstep(0.4, 0.9, k);
+        kneeL = 0.8 * smoothstep(0.4, 0.9, k);
+        thighR = 0.35 * smoothstep(0.4, 0.9, k);
         break;
       case 'charge':
         aL = 0.6;
@@ -550,7 +719,8 @@ export class Nightwatch implements Hittable {
         aL = 0.1;
         aR = 0.1;
         headX = 0.6;
-        r.hips.position.y -= 0.15;
+        thighL = thighR = -0.3;
+        kneeL = kneeR = 0.6;
         break;
       case 'shocked':
         lean = Math.sin(t * 50) * 0.15;
@@ -566,45 +736,86 @@ export class Nightwatch implements Hittable {
         zL = -0.6;
         break;
       case 'leap': {
-        const crouch = k < 0.25 ? k / 0.25 : 0;
-        r.hips.position.y -= crouch * 0.4;
-        lean = 0.4;
-        aL = aR = k < 0.25 ? 0.5 : -2.2;
-        if (k > 0.25 && k < 1) {
-          S.legL.pivot.rotation.x = -1;
-          S.legR.pivot.rotation.x = -0.6;
-          S.legL.joint!.rotation.x = 1.2;
-          S.legR.joint!.rotation.x = 1.4;
+        if (k < LEAP_WIND) {
+          // deep coil, arms swung back: the jump is coming
+          const c = smoothstep(0, LEAP_WIND * 0.8, k);
+          thighL = thighR = -0.95 * c;
+          kneeL = kneeR = 1.7 * c;
+          lean = 0.15 + 0.5 * c;
+          aL = aR = 0.9 * c;
+          headX = -0.3 * c;
+        } else if (k < LEAP_LAND) {
+          lean = 0.4;
+          aL = aR = -2.2;
+          thighL = -1;
+          thighR = -0.6;
+          kneeL = 1.2;
+          kneeR = 1.4;
+          plantFeet = false;
+        } else {
+          // absorbs the landing
+          const c = 1 - smoothstep(LEAP_LAND, LEAP_LAND + 0.4, k);
+          thighL = thighR = -0.7 * c;
+          kneeL = kneeR = 1.3 * c;
+          lean = 0.2 + 0.4 * c;
+          aL = aR = -0.8 * c;
         }
         break;
       }
       case 'climb':
         lean = 0.5;
         aL = aR = -2.6;
+        plantFeet = false;
         break;
       case 'defeated':
         r.hips.position.y = 0.6;
-        S.legL.pivot.rotation.set(-1.5, 0, -0.2);
-        S.legR.pivot.rotation.set(-0.3, 0, 0.2);
-        S.legL.joint!.rotation.x = 2;
-        S.legR.joint!.rotation.x = 1.2;
+        thighL = -1.5;
+        thighR = -0.3;
+        kneeL = 2;
+        kneeR = 1.2;
         lean = 0.9;
         aL = 0.3;
         aR = 0.3;
         headX = 0.6;
+        plantFeet = false;
         break;
     }
+    if (plantFeet && duck > 0) {
+      // the stoop layers over whatever it is doing: knees bend, back hunches, head drops
+      thighL -= 0.45 * duck;
+      thighR -= 0.45 * duck;
+      kneeL += 0.9 * duck;
+      kneeR += 0.9 * duck;
+      lean = Math.max(lean, 0) + 0.45 * duck;
+      headX = Math.max(headX, 0) + 0.35 * duck;
+    }
+    S.legL.pivot.rotation.set(thighL + S.legL.sx.value, 0, this.state === 'defeated' ? -0.2 : 0);
+    S.legR.pivot.rotation.set(thighR + S.legR.sx.value, 0, this.state === 'defeated' ? 0.2 : 0);
+    S.legL.joint!.rotation.x = kneeL;
+    S.legR.joint!.rotation.x = kneeR;
     const breath = Math.sin(t * 1.3) * 0.03;
     S.torso.pivot.rotation.set(lean + breath + S.torso.sx.value, twist, Math.sin(this.phase * 0.5) * 0.04 + S.torso.sz.value);
     S.armL.pivot.rotation.set(aL + S.armL.sx.value, 0, zL + S.armL.sz.value);
     S.armR.pivot.rotation.set(aR + S.armR.sx.value, 0, zR + S.armR.sz.value);
     S.armL.joint!.rotation.x = -eL;
     S.armR.joint!.rotation.x = -eR;
-    S.head.pivot.rotation.set(headX - lean * 0.3 + S.head.sx.value, 0, Math.sin(t * 0.4) * 0.05);
+    S.head.pivot.rotation.set(headX - lean * 0.3 + S.head.sx.value, this.headYaw * 0.75, Math.sin(t * 0.4) * 0.05);
     if (this.coatTail) {
-      this.coatTail.rotation.x = -Math.abs(Math.sin(this.phase)) * 0.25 * amp - (charging ? 0.5 : 0) + Math.sin(t * 1.7) * 0.03;
+      this.coatTail.rotation.x = -Math.abs(Math.sin(this.phase)) * 0.25 * amp - (charging ? 0.5 : 0) + Math.sin(t * 1.7) * 0.03 - 0.3 * duck;
     }
     if (this.blade) this.blade.rotation.z = Math.sin(t * 3) * 0.02;
+    // boots on the floor: bent knees lower the hips instead of pushing the feet underground
+    if (plantFeet) plant(r, [[S.legL.joint!, SOLE], [S.legR.joint!, SOLE]], this.pos.y + 0.01, -0.6, 0.05);
+    if (plantFeet && room < 2.6) {
+      // still brushing the lintel (a wind-up pose, a lower ceiling): hunch over until it clears
+      r.root.updateMatrixWorld(true);
+      const h = S.head;
+      const over = h.pivot.localToWorld(_a.copy(h.center)).y + h.radius - (this.pos.y + room - 0.04);
+      if (over > 0) {
+        S.torso.pivot.rotation.x += Math.min(0.7, over / 0.45);
+        S.head.pivot.rotation.x += Math.min(0.3, over / 0.6);
+      }
+    }
   }
 
   remove() {
