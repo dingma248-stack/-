@@ -58,7 +58,12 @@ export class Physics {
   }
 
   destroy() {
-    this.world?.free();
+    try {
+      this.world?.free();
+    } catch (err) {
+      // a world left mid-borrow can't be freed; drop it rather than block the next level
+      console.error(err);
+    }
     this.tags.clear();
     this.levelBodies.length = 0;
   }
@@ -134,11 +139,10 @@ export class Physics {
   }
 
   removeBody(body: RAPIER.RigidBody) {
-    try {
+    // check first: touching a removed body panics inside the wasm, which can't be safely caught
+    if (body.isValid()) {
       for (let i = 0; i < body.numColliders(); i++) this.tags.delete(body.collider(i).handle);
       this.world.removeRigidBody(body);
-    } catch {
-      /* already removed */
     }
     const i = this.levelBodies.indexOf(body);
     if (i >= 0) this.levelBodies.splice(i, 1);
@@ -180,6 +184,7 @@ export class Physics {
   bodiesInRadius(center: THREE.Vector3, radius: number, cb: (b: RAPIER.RigidBody, tag: ColliderTag | undefined) => void) {
     const shape = new RAPIER.Ball(radius);
     const seen = new Set<number>();
+    const hits: [RAPIER.RigidBody, ColliderTag | undefined][] = [];
     this.world.intersectionsWithShape(
       { x: center.x, y: center.y, z: center.z },
       { x: 0, y: 0, z: 0, w: 1 },
@@ -188,11 +193,15 @@ export class Physics {
         const b = c.parent();
         if (b && b.isDynamic() && !seen.has(b.handle)) {
           seen.add(b.handle);
-          cb(b, this.tagOf(c));
+          hits.push([b, this.tagOf(c)]);
         }
         return true;
       },
     );
+    // Rapier holds the body and collider sets borrowed while the query runs: impulses or
+    // adding/removing bodies inside the callback throw and leave the world unusable
+    // (it can't even be freed on the next level load), so callers run afterwards.
+    for (const [b, tag] of hits) if (b.isValid()) cb(b, tag);
   }
 }
 

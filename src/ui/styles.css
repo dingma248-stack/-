@@ -286,6 +286,9 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 #loading { background: #000; z-index: 40; display: flex; align-items: center; justify-content: center; }
 #loading .frag { max-width: 620px; text-align: center; font-size: 17px; line-height: 2.1; letter-spacing: 0.18em; color: var(--bone-dim); padding: 0 30px; }
 #loading .frag em { display: block; font-style: normal; font-family: var(--mono); font-size: 10px; letter-spacing: 0.4em; color: var(--bone-faint); margin-bottom: 26px; }
+#loading .err { margin-top: 18px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; line-height: 1.7; color: var(--bone-faint); word-break: break-word; }
+#loading .menu { margin-top: 44px; display: flex; gap: 50px; justify-content: center; }
+#loading .menu .menu-item { padding-left: 30px; }
 #loading .spin { position: absolute; right: 5vw; bottom: 6vh; font-family: var(--mono); font-size: 11px; letter-spacing: 0.3em; color: var(--bone-faint); }
 #loading .spin::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--red); margin-right: 12px; animation: breathe 1.2s infinite; transform: rotate(45deg); }
 

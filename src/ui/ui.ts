@@ -478,6 +478,23 @@ export class UI {
     this.show(this.loading, on);
   }
 
+  /** A chapter failed to build: say so, with a way out, instead of loading forever. */
+  loadFailed(detail: string, retry: () => void) {
+    this.loading.innerHTML = `<div class="frag"><em>— 加载失败 —</em>这一章没能加载出来。<div class="err"></div><div class="menu"></div></div>`;
+    (this.loading.querySelector('.err') as HTMLElement).textContent = detail;
+    this.menu(this.loading.querySelector('.menu')!, [
+      { label: '重试', act: retry },
+      {
+        label: '返回标题',
+        act: () => {
+          this.showLoading(false);
+          ctx.game.quitToTitle();
+        },
+      },
+    ]);
+    this.show(this.loading, true);
+  }
+
   async chapterCard(meta: ChapterMeta) {
     this.card.innerHTML = `<div class="t1"></div><div class="t2"></div><div class="t3"></div>`;
     this.show(this.card, true);

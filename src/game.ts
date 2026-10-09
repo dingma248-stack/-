@@ -246,25 +246,33 @@ export class Game {
     input.requestLock();
     await new Promise((r) => setTimeout(r, 650));
     if (seq !== this.loadSeq) return;
-    this.unloadLevel();
-    const meta = CHAPTERS[chapterIndex(id)];
-    this.chapterId = id;
-    this.checkpointId = checkpoint;
-    if (!save) this.clock = meta.clock;
-    // physics + level
-    const L = this.buildLevel(id, checkpoint, save, fresh && !save);
-    if (!save) this.checkpointId = 'start';
-    const next = CHAPTERS[chapterIndex(id) + 1];
-    this.clockCap = next ? next.clock - 1 : PURGE_CLOCK - 120;
-    this.clockRate = ((this.clockCap - meta.clock) / meta.expected) * 0.9;
-    void L;
-    unlockChapter(id);
-    await new Promise((r) => setTimeout(r, 400));
-    if (seq !== this.loadSeq) return;
-    ctx.ui.showLoading(false);
-    if (checkpoint === 'start' && !save) {
-      await ctx.ui.chapterCard(meta);
+    try {
+      this.unloadLevel();
+      const meta = CHAPTERS[chapterIndex(id)];
+      this.chapterId = id;
+      this.checkpointId = checkpoint;
+      if (!save) this.clock = meta.clock;
+      // physics + level
+      const L = this.buildLevel(id, checkpoint, save, fresh && !save);
+      if (!save) this.checkpointId = 'start';
+      const next = CHAPTERS[chapterIndex(id) + 1];
+      this.clockCap = next ? next.clock - 1 : PURGE_CLOCK - 120;
+      this.clockRate = ((this.clockCap - meta.clock) / meta.expected) * 0.9;
+      void L;
+      unlockChapter(id);
+      await new Promise((r) => setTimeout(r, 400));
       if (seq !== this.loadSeq) return;
+      ctx.ui.showLoading(false);
+      if (checkpoint === 'start' && !save) {
+        await ctx.ui.chapterCard(meta);
+        if (seq !== this.loadSeq) return;
+      }
+    } catch (err) {
+      if (seq !== this.loadSeq) return;
+      console.error(err);
+      input.exitLock();
+      ctx.ui.loadFailed(String((err as Error)?.message ?? err), () => void this.startChapter(id, diff, checkpoint, fresh, save));
+      return;
     }
     this.beginPlay();
   }
