@@ -176,7 +176,9 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   L.tube(38, 15, { kind: 'dying', intensity: 6 });
   L.tube(39.5, 11.2, { kind: 'flicker', intensity: 4, len: 1 });
   loot(L, 'ammo9', 12, V(32.5, 1.25, 14.3), 'ch1:ammo2');
-  loot(L, 'bandage', 1, V(35.5, 0.95, 12.2), 'ch1:band1');
+  // at the edge facing the west aisle: mid-shelf it sat inside the shelf's collision box (x 35.2-35.8),
+  // which blocks the [E] sight check
+  loot(L, 'bandage', 1, V(35.22, 0.95, 12.2), 'ch1:band1');
   loot(L, 'battery', 1, V(39.2, 1.1, 15.2), 'ch1:bat1');
   L.place(P.desk(1.4, 0.7), V(40.4, 0, 10.6), Math.PI);
   savePoint(L, V(38.6, 0, 12.3), Math.PI / 2, 'store');

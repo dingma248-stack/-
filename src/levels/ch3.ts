@@ -150,8 +150,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.shelf(4, 2, 0.45, 13), V(30.5, 0, 33.4), 0);
   L.place(P.shelf(4, 2, 0.45, 14), V(30.5, 0, 37.6), Math.PI);
   T(30.5, 35.5, 'buzz', 5);
-  loot(L, 'medkit', 1, V(29.5, 1.2, 33.4), 'ch3:med');
-  loot(L, 'bandage', 2, V(31.8, 0.8, 37.6), 'ch3:band');
+  // on the edges facing the aisle between the shelves: mid-shelf they sat inside the shelves'
+  // collision boxes, which block the [E] sight check
+  loot(L, 'medkit', 1, V(29.5, 1.2, 33.59), 'ch3:med');
+  loot(L, 'bandage', 2, V(31.8, 0.8, 37.4), 'ch3:band');
   loot(L, 'shells', 4, V(32.5, 0.05, 35.5), 'ch3:sh1');
   // security office: keycard for the basement fire door
   L.place(P.monitorDesk(2), V(30.5, 0, 26.6), 0, { keep: true });

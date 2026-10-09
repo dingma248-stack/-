@@ -167,7 +167,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.tube(13, 34, { kind: 'buzz', intensity: 5 });
   L.pickup({ type: 'pouch' }, V(11.6, 0.05, 33), 'ch2:pouch');
   loot(L, 'medkit', 1, V(14.6, 0.05, 32.6), 'ch2:medkit');
-  loot(L, 'battery', 1, V(13.4, 0.5, 34.45), 'ch2:bat');
+  // at the bench's foot: on the seat it sat inside the bench's collision box (0.9 m tall, for the
+  // backrest), which blocks the [E] sight check
+  loot(L, 'battery', 1, V(13.4, 0.02, 35.0), 'ch2:bat');
 
   // ---------------- east wing ----------------
   L.tube(36, 29.5, { kind: 'buzz' });
@@ -178,7 +180,9 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.tube(36, 24, { kind: 'dying', intensity: 5 });
   L.tube(42, 26, { kind: 'flicker', intensity: 4 });
   L.place(P.papers(71, 20, 2), V(38, 0, 26.5), 0, { collide: false });
-  loot(L, 'shells', 4, V(41.2, 1.3, 21.5), 'ch2:shells1');
+  // on the edge facing the aisle: mid-shelf it sat inside the shelf's collision box (z 21.2-21.8),
+  // which blocks the [E] sight check
+  loot(L, 'shells', 4, V(41.2, 1.3, 21.77), 'ch2:shells1');
   // holding cells: bars + prisoners
   const bars = (x0: number, z: number, len: number) => {
     const g = new THREE.Group();
