@@ -374,8 +374,10 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     nw!.pace = 0.95;
   }
 
-  // the stalker bursts through the wall behind you in the north corridor
-  L.trigger(L.box(28, 16.5, 34, 19), () => {
+  // the stalker bursts through the wall behind you as you enter the north corridor from the archive
+  // (x 28-34 was a dead end west of that door, off the route). Not a once-trigger: walking through
+  // here before the stalker shows up must not use it up
+  L.trigger(L.box(36, 16.5, 44, 19.3), () => {
     if (!nw || flag('ch2:wall')) return;
     setFlag('ch2:wall');
     void (async () => {
@@ -388,7 +390,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       ctx.director.scare('low');
       nw!.hunt();
     })();
-  });
+  }, false);
   // reaching the car
   L.trigger(L.box(2, -4, 8, 6, -4, 0), () => {
     if (flag('ch2:end')) return;
