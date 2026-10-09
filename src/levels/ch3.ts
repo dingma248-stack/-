@@ -196,6 +196,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.cart(), V(36.5, 0, 16.6), 0.4);
   T(37, 14.5, 'buzz', 6);
   savePoint(L, V(39.4, 0, 16.8), -Math.PI / 2, 'iso');
+  // Lin's .357 rounds (dropped in meetLin, which doesn't run again after a reload from 'iso' on)
+  if (flag('ch3:lin')) loot(L, 'ammo357', 4, V(36.2, 0.79, 13.4), 'ch3:mag');
   L.safe(L.box(34, 12, 41, 18));
   L.pickup(
     {
