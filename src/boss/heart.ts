@@ -363,6 +363,8 @@ export class HeartBoss implements Hittable {
         break;
       case 'idle': {
         this.yaw += clamp(angleDiff(this.yaw, toP), -0.9 * dt, 0.9 * dt);
+        // it wakes during its own intro cutscene: no spitting or slamming at a player who can't move
+        if (!p.control) break;
         if (this.breathCd <= 0) {
           this.breathCd = this.phase === 3 ? 8 : 11;
           this.openChest(2.2);

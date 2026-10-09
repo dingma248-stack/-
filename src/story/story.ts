@@ -114,6 +114,8 @@ export class Story {
     this.inCutscene = true;
     this.skipping = false;
     ctx.player.control = false;
+    // a grab can't be struggled out of without the controls: the cutscene shakes it off
+    if (ctx.player.grabbedBy) ctx.player.release(true);
     ctx.ui.letterbox(true);
     this.cutCam.position.copy(ctx.player.camera.position);
     this.cutCam.quaternion.copy(ctx.player.camera.quaternion);

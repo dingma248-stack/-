@@ -64,7 +64,8 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
       X: { t: 'floor', floor: 'steel', ceil: 'steel', cy: 2.6 },
       n: { t: 'floor', floor: 'steel', ceil: 'steel', cy: 2.8 },
       E: { t: 'floor', floor: 'metal', ceil: 'steel', cy: 3.2 },
-      p: { t: 'floor', floor: 'concrete', ceil: null, cy: null, fy: 1.1, side: 'concreteDark', nav: false },
+      // parapet: out of reach of a jump (0.78 m) plus autostep (0.42 m), with open sky beyond it
+      p: { t: 'floor', floor: 'concrete', ceil: null, cy: null, fy: 1.3, side: 'concreteDark', nav: false },
       R: { t: 'floor', floor: 'concrete', ceil: null, cy: null },
       '.': { t: 'floor', floor: 'steel' },
     },
