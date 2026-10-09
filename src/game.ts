@@ -597,7 +597,8 @@ export class Game {
     if (playing || dying) {
       const gdt = dying ? dt * 0.35 : dt;
       ctx.time += gdt;
-      this.stats.time += dt;
+      // a retry keeps the run's clock, so the death screen (which can sit open for minutes) must not add to it
+      if (playing) this.stats.time += dt;
       this.clock = Math.min(this.clockCap, this.clock + (this.clockRate * gdt) / 60);
       if (playing) {
         this.handleInput();
