@@ -529,8 +529,8 @@ export class Enemy {
         if (this.path) this.followPath(0.35);
         else if (see) face = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
         if (Math.random() < dt * 0.4) this.voice(0.9);
-        // attacks
-        if (this.attackCd <= 0 && see && !p.dead) {
+        // attacks (none while a cutscene has the player's controls: they couldn't fight back)
+        if (this.attackCd <= 0 && see && !p.dead && p.control) {
           if (this.onCeiling) {
             const horiz = Math.hypot(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
             if (horiz < 2.2) this.dropFromCeiling();
@@ -554,7 +554,8 @@ export class Enemy {
           this.attackHit = true;
           const near = this.pos.distanceTo(p.pos) < d.attackRange + 0.35;
           const facing = Math.abs(angleDiff(this.yaw, Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z))) < 0.9;
-          if (near && facing && !p.dead) {
+          // (a swing begun just before a cutscene took the controls misses)
+          if (near && facing && !p.dead && p.control) {
             if (this.kind === 'infected' && !p.grabbedBy && Math.random() < 0.6 && p.grab(this)) {
               this.setState('grab');
               ctx.audio.play('growl', { pos: this.headPos(), vol: 1 });
@@ -589,7 +590,7 @@ export class Enemy {
         } else {
           speed = 8.5;
           this.vel.copy(this.forward()).multiplyScalar(speed);
-          if (!this.attackHit && distP < 1.3) {
+          if (!this.attackHit && distP < 1.3 && p.control) {
             this.attackHit = true;
             p.damage(d.attackDamage, this.pos);
             p.shake = 1.2;
@@ -629,7 +630,7 @@ export class Enemy {
         // only the decaying knock moves it until it starts to crawl (adding it every frame
         // integrated into a 25-60 m/s slide)
         if (speed === 0) this.vel.copy(this.knock);
-        if (this.attackCd <= 0 && distP < 1.1) {
+        if (this.attackCd <= 0 && distP < 1.1 && p.control) {
           p.damage(d.attackDamage * 0.6, this.pos);
           ctx.audio.play('bite', { pos: this.pos, vol: 0.8 });
           this.attackCd = 1.8;

@@ -455,6 +455,9 @@ export class Player {
 
   damage(amount: number, from?: THREE.Vector3) {
     if (this.dead || this.invuln > 0 || ctx.game.godMode) return;
+    // a cutscene has taken the controls (and the camera) away: nothing may hurt you until it hands
+    // them back (no script kills the player inside one; the ch5 countdown pauses for them)
+    if (ctx.story.inCutscene && !this.control) return;
     const dmg = amount * DIFFICULTY[ctx.difficulty].enemyDmg;
     this.health -= dmg;
     this.damageFx = Math.min(1, this.damageFx + 0.45 + dmg / 60);
@@ -490,7 +493,7 @@ export class Player {
 
   // ---------------- grab ----------------
   grab(e: Enemy) {
-    if (this.grabbedBy || this.dead || this.invuln > 0) return false;
+    if (this.grabbedBy || this.dead || this.invuln > 0 || (ctx.story.inCutscene && !this.control)) return false;
     this.grabbedBy = e;
     this.grabProgress = 0;
     this.grabTimer = 0;
