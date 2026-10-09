@@ -27,6 +27,7 @@ import { readSave, writeSave, readProgress, writeProgress, unlockChapter, emptyS
 import { clamp, damp, rand } from './core/math';
 import { fleshUniforms } from './levels/props';
 import { retroUniforms } from './render/materials';
+import { loadExternalAssets } from './core/assets';
 
 type State = 'boot' | 'title' | 'loading' | 'play' | 'paused' | 'dead' | 'ending';
 
@@ -122,6 +123,7 @@ export class Game {
     });
     await fontsReady;
     await audio.bake((p) => ui.bootProgress(p));
+    await loadExternalAssets();
     this.loop();
     ui.bootReady(() => this.enterTitle(true));
   }

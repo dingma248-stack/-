@@ -249,7 +249,7 @@ export function buildLauncher(): Viewmodel {
     muzzle,
     ejector,
     hip: new THREE.Vector3(0.18, -0.19, -0.42),
-    ads: new THREE.Vector3(0, -0.105, -0.34),
+    ads: new THREE.Vector3(0, -0.125, -0.36),
   };
 }
 

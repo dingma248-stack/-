@@ -331,6 +331,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     ctx.audio.play('pickup', { bus: 'ui' });
     loot(L, 'ammo357', 4, V(36.2, 0.79, 13.4), 'ch3:mag');
     lin!.following = true;
+    enableIntrusion();
     objective(ctx.inventory.hasKey('b1card') ? '经地下通道前往地铁港湾站' : '在保安部找到地下通道门禁卡', ctx.inventory.hasKey('b1card') ? V(8.5, 0, 22) : V(30.5, 0, 28));
     ctx.game.checkpoint('iso');
   }
@@ -340,6 +341,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
       objective('经地下通道前往地铁港湾站', V(8.5, 0, 22));
     }
   });
+  function enableIntrusion() {
+    // the stalker may come back for her while you search the hospital
+    ctx.director.intrusion = { form: 1, points: [V(9, 0, 20), V(40.5, 0, 20.5), V(25.5, 0, 38.5), V(21, 0, 45)], max: 1, count: 0, cd: 50 };
+  }
   // dogs burst out of the morgue
   L.trigger(L.box(14, 19, 19, 22), () => {
     if (flag('ch3:dogs')) return;
@@ -372,6 +377,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   L.trigger(L.box(5, 36, 12, 39, -6, -2), () => {
     if (flag('ch3:sub')) return;
     setFlag('ch3:sub');
+    ctx.director.intrusion = null;
+    ctx.director.dismissIntruder();
     L.env.reverb = 'hall';
     ctx.audio.setReverb('hall');
     L.mapTitle = '地铁三号线 · 港湾站';
@@ -489,6 +496,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
       L.ambient('hum', V(25, 2.5, 30), 0.14, 3);
       L.ambient('drone', V(28, -3, 47), 0.2, 8);
       L.startAmbience();
+      if (flag('ch3:lin') && !flag('ch3:sub')) enableIntrusion();
       if (cp === 'start') {
         objective('寻找求救的人（四楼隔离病房 · 北侧）', V(37.5, 0, 19));
         void (async () => {

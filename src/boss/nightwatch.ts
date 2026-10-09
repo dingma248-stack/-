@@ -53,6 +53,8 @@ export class Nightwatch implements Hittable {
   active = true;
   /** stalk speed multiplier (scripts can slow it for pacing) */
   pace = 1;
+  /** when set, it walks here instead of hunting (director-controlled withdrawal) */
+  retreat: THREE.Vector3 | null = null;
   /** called when shocked / stunned etc. for chapter logic */
   onDamaged?: (hp: number) => void;
   readonly form: 1 | 2;
@@ -219,6 +221,15 @@ export class Nightwatch implements Hittable {
         if (!this.active) break;
         speed = (this.form === 1 ? (dist > 16 ? 3.3 : 2.45) : dist > 12 ? 4.2 : 3.1) * this.pace;
         this.repath -= dt;
+        if (this.retreat) {
+          speed = 2.2;
+          if (!this.path || this.repath <= 0) {
+            this.path = ctx.level!.nav.findPath(this.pos, this.retreat, 4000);
+            this.pathIdx = 0;
+            this.repath = 1.5;
+          }
+          break;
+        }
         const los = dist < 9 && ctx.physics.lineOfSight(this.pos.clone().setY(this.pos.y + 1), p.pos.clone().setY(p.pos.y + 1));
         if (los) {
           this.path = [p.pos.clone()];

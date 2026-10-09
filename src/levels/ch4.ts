@@ -228,6 +228,7 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
       await wait(0.6);
       for (const e of ctx.enemies.alive) if (e.pos.distanceTo(V(42.5, 0, 20)) < 12) e.alert(ctx.player.pos);
       await say('林薇', '电力恢复了。门禁应该解锁了——装备室、研究办公室、还有……保险库。');
+      enableIntrusion();
       objective('寻找疫苗保险库的密码（研究办公室）', V(46, 0, 8));
       ctx.game.checkpoint('power');
     }
@@ -374,8 +375,14 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
       await wait(0.5);
     }
   }
+  function enableIntrusion() {
+    // it crawled out of the tunnel after you; with power back on, it can find you
+    ctx.director.intrusion = { form: 2, points: [V(40, 0, 26.5), V(47.5, 0, 13.5), V(54, 0, 25), V(39.5, 0, 5)], max: 1, count: 0, cd: 40 };
+  }
   async function vaccineScene() {
     setFlag('ch4:vaccineTaken');
+    ctx.director.intrusion = null;
+    ctx.director.dismissIntruder();
     await wait(0.4);
     lin.following = false;
     lin.teleport(V(42.5, 0, 29.6), Math.PI);
@@ -441,6 +448,7 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
       ];
       L.startAmbience();
       if (flag('ch4:power')) void powerOn(true);
+      if (flag('ch4:power') && !flag('ch4:vaccineTaken')) enableIntrusion();
       if (cp === 'start') {
         objective('沿排水渠前进，寻找研究所入口');
         void (async () => {

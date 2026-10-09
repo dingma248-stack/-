@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { seeded } from '../core/math';
+import { textureOverrides } from '../core/assets';
 
 /**
  * Procedural low-resolution textures drawn on canvas. Everything is sampled
@@ -16,7 +17,13 @@ function make(key: string, size: number, draw: Draw, seed = 1, srgb = true): THR
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d')!;
-  draw(ctx, size, seeded(seed * 9973 + key.length * 131));
+  const ov = textureOverrides.get(key);
+  if (ov) {
+    // an external CC0 texture replaces the procedural one
+    c.width = ov.naturalWidth;
+    c.height = ov.naturalHeight;
+    ctx.drawImage(ov, 0, 0);
+  } else draw(ctx, size, seeded(seed * 9973 + key.length * 131));
   const t = new THREE.CanvasTexture(c);
   t.magFilter = THREE.NearestFilter;
   t.minFilter = THREE.NearestMipmapNearestFilter;

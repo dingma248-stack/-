@@ -4,6 +4,7 @@ import { bus } from '../core/events';
 import { clamp, damp, rand, pick } from '../core/math';
 import { stdMat } from '../render/materials';
 import type { Layer } from '../audio/music';
+import { Nightwatch } from '../boss/nightwatch';
 
 /**
  * Pacing director: tracks tension, drives the dynamic score and ambient
@@ -24,6 +25,11 @@ export class Director {
   ambientPool: { name: string; vol: number; dist: [number, number] }[] = [];
   private ambientCd = 8;
   phantomsEnabled = true;
+  /** stalker intrusions: chapters enable them with spawn points */
+  intrusion: { form: 1 | 2; points: THREE.Vector3[]; max: number; count: number; cd: number; pitBelow?: number } | null = null;
+  private intruder: Nightwatch | null = null;
+  private intruderT = 0;
+  private intruding = false;
 
   constructor() {
     bus.on('playerDamaged', () => {
@@ -44,6 +50,9 @@ export class Director {
     this.stalkerNear = 0;
     this.ambientPool = [];
     this.lastLayers = '';
+    this.intrusion = null;
+    this.intruder = null;
+    this.intruding = false;
   }
 
   update(dt: number) {
@@ -75,6 +84,7 @@ export class Director {
         ctx.music.only(layers, inCombat ? 0.6 : 1.8);
       }
     }
+    this.updateIntrusion(dt, inCombat);
     // ---- ambient one-shots ----
     this.ambientCd -= dt;
     if (this.ambientCd <= 0 && this.ambientPool.length) {
@@ -138,6 +148,67 @@ export class Director {
     this.phantom.removeFromParent();
     this.phantom.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
     this.phantom = null;
+  }
+
+  private updateIntrusion(dt: number, inCombat: boolean) {
+    const it = this.intrusion;
+    if (!it) return;
+    const p = ctx.player;
+    const lvl = ctx.level!;
+    if (this.intruder) {
+      const nw = this.intruder;
+      this.intruderT += dt;
+      const safe = lvl.inSafeZone(p.pos);
+      if (!nw.retreat && (this.intruderT > 45 || safe)) {
+        // withdraw to the farthest spawn point
+        nw.retreat = it.points.reduce((a, b) => (b.distanceTo(p.pos) > a.distanceTo(p.pos) ? b : a));
+        ctx.audio.play('bossRoar', { pos: nw.headPos(), vol: 0.7, rate: 0.9 });
+      }
+      if (nw.retreat) {
+        const seen = ctx.physics.lineOfSight(p.camera.position, nw.headPos());
+        if ((nw.pos.distanceTo(nw.retreat) < 1.5 || nw.pos.distanceTo(p.pos) > 26) && !seen) {
+          nw.remove();
+          this.intruder = null;
+          it.cd = rand(150, 220);
+        }
+      }
+      return;
+    }
+    if (this.intruding || it.count >= it.max) return;
+    it.cd -= dt;
+    if (it.cd > 0 || inCombat || this.sinceCombat < 25 || lvl.inSafeZone(p.pos) || ctx.story.inCutscene || ctx.story.busy) return;
+    // pick the farthest point that is out of sight
+    const pts = it.points.filter((q) => q.distanceTo(p.pos) > 14 && !ctx.physics.lineOfSight(p.camera.position, q.clone().setY(q.y + 1.8)));
+    if (!pts.length) return;
+    const at = pts.reduce((a, b) => (b.distanceTo(p.pos) > a.distanceTo(p.pos) ? b : a));
+    this.intruding = true;
+    it.count++;
+    void (async () => {
+      // foreshadowing: radio cut-out, heavy steps getting closer
+      ctx.audio.play('radio', { vol: 0.35 });
+      for (let i = 0; i < 4; i++) {
+        const k = (i + 1) / 4;
+        ctx.audio.play('bossStep', { pos: at.clone().lerp(p.pos, 0.25 * k), vol: 0.4 + k * 0.4, ref: 5 });
+        p.shake = Math.max(p.shake, 0.1 + k * 0.15);
+        await ctx.story.wait(1.2);
+      }
+      ctx.audio.play('bossImpact', { pos: at, vol: 0.9 });
+      this.scare('low', 0.7);
+      const nw = new Nightwatch(at, Math.atan2(p.pos.x - at.x, p.pos.z - at.z), it.form);
+      if (it.pitBelow !== undefined) nw.pitBelow = it.pitBelow;
+      nw.hunt();
+      nw.pace = 0.9;
+      this.intruder = nw;
+      this.intruderT = 0;
+      this.intruding = false;
+      ctx.ui.toast('它来了。');
+    })();
+  }
+
+  /** Remove any active intruder (cutscenes, chapter events). */
+  dismissIntruder() {
+    this.intruder?.remove();
+    this.intruder = null;
   }
 
   get inCombat() {
