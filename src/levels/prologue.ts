@@ -196,7 +196,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
     ctx.director.scare('high');
     corridorZ.wake();
     await wait(1.4);
-    ctx.ui.toast('左键挥刀 · V 快速近战 · 也可以绕开它');
+    ctx.ui.toast('{fire}挥刀 · {melee} 快速近战 · 也可以绕开它');
   });
   // dock reveal
   L.trigger(L.box(21, 7.5, 23, 10.5), () => {
@@ -239,7 +239,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
     void emergency2;
     ctx.director.scare('low', 0.7);
     await wait(1.2);
-    if (!ctx.player.flashOn) ctx.ui.toast('按 F 打开手电筒');
+    if (!ctx.player.flashOn) ctx.ui.toast('按 {flashlight} 打开手电筒');
     await say('陈屿', '（停电了。备用电源也……）');
   }
 
@@ -281,7 +281,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
         objective('检查监控画面', V(3.5, 0, 1.5));
         void (async () => {
           await wait(1.2);
-          ctx.ui.toast('WASD 移动 · 鼠标环顾 · E 交互');
+          ctx.ui.toast('{forward}{left}{back}{right} 移动 · 鼠标环顾 · {interact} 交互');
           await wait(0.8);
           await say('陈屿', '（22:40。又是一个安静的夜班。）');
         })();

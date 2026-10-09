@@ -122,6 +122,11 @@ export function resetSettings() {
   saveSettings();
 }
 
+/** Fill `{action}` placeholders (tips, hints, tutorial toasts) with the key the player has bound to that action. */
+export function withKeys(text: string): string {
+  return text.replace(/\{(\w+)\}/g, (m, a: string) => (a in settings.bindings ? keyLabel(settings.bindings[a as Action]) : m));
+}
+
 export function keyLabel(code: string): string {
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);

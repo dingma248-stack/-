@@ -21,7 +21,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   shells: { id: 'shells', name: '12 号霰弹', short: '12G', w: 1, h: 1, stack: 10, desc: '12 号鹿弹。近距离能把人撕开。', icon: 'shells' },
   ammo357: { id: 'ammo357', name: '.357 马格南弹', short: '.357', w: 1, h: 1, stack: 6, desc: '大口径左轮子弹，极其稀少。', icon: 'ammo357' },
   grenade: { id: 'grenade', name: '40mm 榴弹', short: '40mm', w: 1, h: 1, stack: 3, desc: '高爆榴弹。留给真正需要的时候。', icon: 'grenade' },
-  bandage: { id: 'bandage', name: '止血绷带', short: '绷带', w: 1, h: 1, stack: 2, desc: '恢复少量生命。按 H 优先使用。', icon: 'bandage' },
+  bandage: { id: 'bandage', name: '止血绷带', short: '绷带', w: 1, h: 1, stack: 2, desc: '恢复少量生命。按 {heal} 优先使用。', icon: 'bandage' },
   medkit: { id: 'medkit', name: '急救包', short: '急救', w: 1, h: 2, stack: 1, desc: '军用急救包，恢复大量生命。', icon: 'medkit' },
   battery: { id: 'battery', name: '手电电池', short: '电池', w: 1, h: 1, stack: 2, desc: '为手电筒充电。电量低时自动更换。', icon: 'battery' },
 };

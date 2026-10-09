@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
 import { input } from '../core/input';
-import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, isReservedKey, type Action } from '../core/settings';
+import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, withKeys, isReservedKey, type Action } from '../core/settings';
 import { WEAPONS, DIFFICULTY, type Difficulty, type WeaponId, type Quality } from '../config';
 import { CHAPTERS, LORE, PURGE_CLOCK, fmtClock, type ChapterMeta } from '../levels/meta';
 import { readProgress, readSave } from '../save/save';
@@ -180,7 +180,7 @@ export class UI {
       <div class="mark">雾港 · 长夜</div>
       <div class="bar"><i></i></div>
       <div class="press">Press any key<small>按任意键开始</small></div>
-      <div class="hint">WASD 移动 · 鼠标瞄准 · 左键射击 · 右键瞄准 · E 交互 · F 手电</div>`;
+      <div class="hint">${withKeys('{forward}{left}{back}{right} 移动 · 鼠标瞄准 · {fire}射击 · {aim}瞄准 · {interact} 交互 · {flashlight} 手电')}</div>`;
     this.bootBar = this.boot.querySelector('.bar i')!;
     this.bootPress = this.boot.querySelector('.press')!;
   }
@@ -503,7 +503,7 @@ export class UI {
 
   // =================================================== LOADING / CARD
   showLoading(on: boolean) {
-    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${pick(LORE).replace(/\{(\w+)\}/g, (_m, a: Action) => keyLabel(settings.bindings[a]))}</div><div class="spin">LOADING</div>`;
+    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${withKeys(pick(LORE))}</div><div class="spin">LOADING</div>`;
     this.show(this.loading, on);
   }
 
@@ -761,7 +761,7 @@ export class UI {
   }
 
   toast(text: string) {
-    const t = h('div', 'toast', text);
+    const t = h('div', 'toast', withKeys(text));
     this.toasts.appendChild(t);
     while (this.toasts.children.length > 3) this.toasts.firstElementChild!.remove();
     setTimeout(() => t.remove(), 3300);
@@ -926,7 +926,7 @@ export class UI {
     if (this.invTab === 0) this.renderBag(body);
     else if (this.invTab === 1) this.renderMap(body);
     else this.renderDocs(body);
-    const hint = h('div', '', `<div style="position:absolute;bottom:5vh;left:7vw;font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:rgba(233,227,213,.3)">TAB · 关闭　　点击物品查看 / 使用 / 丢弃</div>`);
+    const hint = h('div', '', `<div style="position:absolute;bottom:5vh;left:7vw;font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:rgba(233,227,213,.3)">${keyLabel(settings.bindings.inventory)} · 关闭　　点击物品查看 / 使用 / 丢弃</div>`);
     this.inv.appendChild(hint);
   }
 
@@ -961,7 +961,8 @@ export class UI {
     for (const id of ctx.weapons.owned) {
       const d = WEAPONS[id];
       const mag = ctx.weapons.mags[id];
-      wr.appendChild(h('div', id === ctx.weapons.current ? 'on' : '', `<b>${d.slot || 'V'}</b>${d.name}${d.ammo ? ` · ${mag}` : ''}`));
+      const key = keyLabel(settings.bindings[d.slot ? (`weapon${d.slot}` as Action) : 'melee']);
+      wr.appendChild(h('div', id === ctx.weapons.current ? 'on' : '', `<b>${key}</b>${d.name}${d.ammo ? ` · ${mag}` : ''}`));
     }
     wrap.appendChild(wr);
     body.appendChild(wrap);
@@ -980,7 +981,7 @@ export class UI {
     const s = this.selSlot && inv.slots.includes(this.selSlot) ? this.selSlot : null;
     if (s) {
       const d = ITEMS[s.item];
-      desc.innerHTML = `<div class="nm">${d.name}</div><div class="ds">${d.desc}<br><span style="font-family:var(--mono);font-size:11px;color:var(--bone-faint)">数量 ${s.count} / ${d.stack} · 占用 ${d.w}×${d.h}</span></div>`;
+      desc.innerHTML = `<div class="nm">${d.name}</div><div class="ds">${withKeys(d.desc)}<br><span style="font-family:var(--mono);font-size:11px;color:var(--bone-faint)">数量 ${s.count} / ${d.stack} · 占用 ${d.w}×${d.h}</span></div>`;
       const acts = h('div', 'acts');
       if (s.item === 'bandage' || s.item === 'medkit' || s.item === 'battery') {
         const u = h('span', 'interactive', '使用');
@@ -1043,7 +1044,7 @@ export class UI {
 
   showDoc(d: Doc) {
     this.docOpen = true;
-    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">E / ESC / 点击 · 合上</div>`;
+    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">${keyLabel(settings.bindings.interact)} / ESC / 点击 · 合上</div>`;
     this.show(this.doc, true);
     ctx.game.setOverlayPause(true);
     const opened = performance.now();
