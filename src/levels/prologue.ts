@@ -102,11 +102,12 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   L.ambient('hum', V(10, 2.5, 8.5), 0.15, 2);
 
   // ---------------- storage ----------------
-  L.place(P.shelf(2.2, 2.2, 0.5, 4), V(9, 0, 11.8), 0);
+  // against the north wall beside the door: in front of it, the shelf left a 0.55 m slot no one could get past
+  L.place(P.shelf(2.2, 2.2, 0.5, 4), V(6.25, 0, 11.3), 0);
   L.place(P.shelf(1.8, 2.2, 0.5, 9), V(13.1, 0, 12.6), -Math.PI / 2);
   for (const [x, z] of [[6, 12.2], [6.2, 13.3], [7.3, 13.35]] as [number, number][]) L.place(P.crate(0.7), V(x, 0, z), Math.random(), { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood' } } });
   L.tube(9, 12.5, { kind: 'flicker', intensity: 4 });
-  loot(L, 'bandage', 1, V(9.3, 1.2, 11.8), 'pro:bandage');
+  loot(L, 'bandage', 1, V(6.55, 1.2, 11.3), 'pro:bandage');
   loot(L, 'battery', 1, V(11.6, 0.02, 13.5), 'pro:battery');
   L.pickup(
     {
@@ -117,7 +118,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
         body: '10月9日 夜班交接\n\n1. 卸货区卷帘门遥控失灵，需手动拉起。\n2. 21:50 老马说去卸货区抽根烟。\n3. 广播通知：市区多处出现「狂犬病样」伤人事件，\n   商场提前闭店，请值班人员锁好各出入口。\n4. 监控 CAM 03 画面偶尔雪花，已报修。\n\n——小郑\n\n（字迹潦草的补充）\n老马被咬了一口，说没事。他一直在出汗。',
       },
     },
-    V(9.85, 0.62, 11.8),
+    V(7.1, 0.62, 11.3),
     'pro:doc1',
   );
 

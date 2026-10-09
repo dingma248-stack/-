@@ -201,7 +201,8 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   for (const [x, z] of [[31, 5.5], [44, 8.2], [48, 5.4]] as [number, number][]) L.place(P.bin(), V(x, 0, z), 0, { dynamic: { mass: 10, surface: 'metal' } });
   L.place(P.crate(0.8), V(36, 0, 5.5), 0.2, { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood', onBreak: () => loot(L, 'ammo9', 6, V(36, 0.05, 5.6)) } } });
   L.light(V(33, 2.6, 8.6), 0xffd090, 5, 6, 'flicker');
-  L.place(P.pipe(18, 0.12), V(40, 3.2, 5.14), 0, { collide: false });
+  // along the alley's south wall, which ends at x 42: past it the alley opens onto the plaza and the pipe hung in the air
+  L.place(P.pipe(11.9, 0.12), V(35.95, 3.2, 5.14), 0, { collide: false });
   L.decal('hand', V(43.5, 1.4, 8.98), V(0, 0, -1), 0.5);
 
   // ---------------- side street & station plaza ----------------
