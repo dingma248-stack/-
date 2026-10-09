@@ -298,12 +298,15 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
   );
   // vault
   const vault = L.door(42, 28, { kind: 'slide', locked: 'vault', msg: '疫苗保险库 · 密码锁' });
+  // the code was already entered before this save: a reload must not shut the vault again
+  if (flag('ch4:vaultOpen') || flag('ch4:vaccineTaken')) vault.unlock();
   const kp = new THREE.Group();
   bx(kp, 0.16, 0.24, 0.04, M.dark(), 0, 0, 0);
   bx(kp, 0.12, 0.05, 0.01, stdMat({ color: 0x0a120c, emissive: 0x40ff80, emissiveIntensity: 0.6 }), 0, 0.07, 0.025);
   L.place({ g: kp, cols: [] }, V(43.3, 1.3, 27.97), Math.PI, { collide: false, keep: true });
   L.interact(V(43.3, 1.3, 27.6), () => (vault.locked && flag('ch4:power') ? '[E] 输入保险库密码' : null), () => {
     ctx.ui.keypad('疫苗保险库', '1104', () => {
+      setFlag('ch4:vaultOpen');
       vault.unlock();
       vault.open(ctx.player.pos);
     });
@@ -322,7 +325,7 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
   // ---------------- story ----------------
   const lin = new NPC(cp === 'start' ? V(3, -1, 22.6) : V(43, 0, 22), -Math.PI / 2, 'lin');
   lin.following = true;
-  if (flag('ch4:bitten')) lin.pose = 'hurt';
+  if (flag('ch4:bitten') && flag('linSaved') !== true) lin.pose = 'hurt';
   // ambush: Lin gets bitten
   L.trigger(L.box(13, 21.5, 18, 24.5, -2, 1), () => {
     if (flag('ch4:bitten')) return;
@@ -449,6 +452,12 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
         { name: 'distantBoom', vol: 0.3, dist: [30, 50] },
       ];
       L.startAmbience();
+      if (flag('ch4:lab')) {
+        // restored inside the lab: its entry trigger has fired and won't switch the map and reverb over
+        L.mapTitle = '赫利生物 · 地下研究所 B3';
+        L.env.reverb = 'hall';
+        ctx.audio.setReverb('hall');
+      }
       if (flag('ch4:power')) void powerOn(true);
       if (flag('ch4:power') && !flag('ch4:vaccineTaken')) enableIntrusion();
       if (cp === 'start') {
@@ -458,11 +467,16 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
           await say('林薇', '研究所的维护通道就在排水系统东头。小心水里。');
         })();
         ctx.game.checkpoint('start');
-      } else if (cp === 'vault') {
+      } else if (cp === 'vault' || flag('ch4:vaccineTaken')) {
         objective('乘货运电梯前往 B5 核心区', V(52, 0, 32));
-        lin.teleport(V(42.5, 0, 29.6));
+        if (cp === 'vault') lin.teleport(V(42.5, 0, 29.6));
+      } else if (!flag('ch4:power')) {
+        // saved at the maintenance radio before the breakers: the lab trigger that sets this won't fire again
+        objective('恢复研究所电力（东侧发电机房）', V(53, 0, 24));
+      } else if (flag('ch4:stickyObj')) {
+        objective('打开疫苗保险库（大厅南侧）', V(42.5, 0, 28));
       } else {
-        objective(flag('ch4:stickyObj') ? '打开疫苗保险库（大厅南侧）' : '寻找疫苗保险库的密码（研究办公室）', V(46, 0, 8));
+        objective('寻找疫苗保险库的密码（研究办公室）', V(46, 0, 8));
       }
     },
   };
