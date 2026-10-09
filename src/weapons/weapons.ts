@@ -23,7 +23,19 @@ const _v = new THREE.Vector3();
 
 export class Weapons {
   owned: WeaponId[] = ['knife'];
-  current: WeaponId = 'knife';
+  private held: WeaponId = 'knife';
+  /**
+   * Setting this also swaps the visible viewmodel. Chapter select and Continue assign it straight after
+   * reset(); without the swap the knife stayed shown, unposed at the view camera's origin, as a huge dark
+   * blade across the top of the screen, and the gun in hand stayed invisible.
+   */
+  get current(): WeaponId {
+    return this.held;
+  }
+  set current(id: WeaponId) {
+    this.held = id;
+    this.show(id);
+  }
   last: WeaponId = 'knife';
   private pending: WeaponId | null = null;
   mags: Record<WeaponId, number> = { knife: 0, pistol: 0, shotgun: 0, magnum: 0, launcher: 0 };
