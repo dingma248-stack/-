@@ -126,7 +126,7 @@ export class Rain {
         varying float vA;
         #include <fog_pars_fragment>
         void main() {
-          gl_FragColor = vec4(uColor, 0.32 * vA);
+          gl_FragColor = vec4(uColor, 0.2 * vA);
           #include <fog_fragment>
         }
       `,

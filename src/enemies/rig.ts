@@ -126,8 +126,8 @@ export function humanoid(seed: number, opts: { scale?: number; thin?: boolean; c
   const segs: Record<Part, Seg> = {
     torso: seg('torso', torso, 0.66 * s, 0.2 * s * thin, new THREE.Vector3(0, 0.33 * s, 0), new THREE.Vector3(0.18 * s * thin, 0.32 * s, 0.11 * s * thin), undefined, new THREE.Vector3(0, 0.08 * s, 0), new THREE.Vector3(0, 0.56 * s, 0)),
     head: seg('head', neck, 0.3 * s, 0.13 * s, new THREE.Vector3(0, 0.18 * s, 0.01), new THREE.Vector3(0.11 * s, 0.13 * s, 0.11 * s)),
-    armL: seg('armL', aL.sh, aL.len, 0.07 * s, new THREE.Vector3(0, -aL.len / 2, 0), new THREE.Vector3(0.05 * s, aL.len / 2, 0.05 * s), aL.el, new THREE.Vector3(), new THREE.Vector3(0, -aL.fl, 0)),
-    armR: seg('armR', aR.sh, aR.len, 0.07 * s, new THREE.Vector3(0, -aR.len / 2, 0), new THREE.Vector3(0.05 * s, aR.len / 2, 0.05 * s), aR.el, new THREE.Vector3(), new THREE.Vector3(0, -aR.fl, 0)),
+    armL: seg('armL', aL.sh, aL.len, 0.055 * s, new THREE.Vector3(0, -aL.len / 2, 0), new THREE.Vector3(0.05 * s, aL.len / 2, 0.05 * s), aL.el, new THREE.Vector3(), new THREE.Vector3(0, -aL.fl, 0)),
+    armR: seg('armR', aR.sh, aR.len, 0.055 * s, new THREE.Vector3(0, -aR.len / 2, 0), new THREE.Vector3(0.05 * s, aR.len / 2, 0.05 * s), aR.el, new THREE.Vector3(), new THREE.Vector3(0, -aR.fl, 0)),
     legL: seg('legL', lL.hp, 0.88 * s, 0.09 * s, new THREE.Vector3(0, -0.44 * s, 0), new THREE.Vector3(0.07 * s, 0.44 * s, 0.07 * s), lL.kn, new THREE.Vector3(), new THREE.Vector3(0, -0.42 * s, 0)),
     legR: seg('legR', lR.hp, 0.88 * s, 0.09 * s, new THREE.Vector3(0, -0.44 * s, 0), new THREE.Vector3(0.07 * s, 0.44 * s, 0.07 * s), lR.kn, new THREE.Vector3(), new THREE.Vector3(0, -0.42 * s, 0)),
   };

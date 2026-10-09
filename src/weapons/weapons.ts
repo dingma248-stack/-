@@ -70,7 +70,9 @@ export class Weapons {
   constructor(scene: THREE.Scene) {
     this.viewScene.add(this.viewHemi, this.viewKey, this.viewMuzzle, this.viewFlash, this.holder);
     this.viewKey.position.set(0.3, 1, 0.4);
-    this.viewFlash.position.set(0.2, -0.1, -0.2);
+    this.viewKey.intensity = 0.35;
+    this.viewFlash.position.set(0.12, 0.08, -0.55);
+    this.viewFlash.distance = 1.4;
     scene.add(this.worldMuzzle);
     for (const id of WEAPON_ORDER) {
       const vm = VIEWMODELS[id]();
@@ -96,7 +98,7 @@ export class Weapons {
     x.fill();
     const tex = new THREE.CanvasTexture(c);
     tex.magFilter = THREE.NearestFilter;
-    this.flashMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), new THREE.MeshBasicMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.flashMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.075, 0.075), new THREE.MeshBasicMaterial({ map: tex, color: 0xffc890, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.flashMesh.visible = false;
     this.flashMesh.renderOrder = 10;
     this.viewScene.add(this.flashMesh);
@@ -580,7 +582,13 @@ export class Weapons {
     const parts = vm.parts;
     // base pose
     const base = vm.hip.clone().lerp(vm.ads, this.adsT);
-    const rot = new THREE.Euler(0, 0, 0);
+    // at the hip the gun is canted slightly inward so its side profile reads
+    const rot = new THREE.Euler(0.02 * (1 - this.adsT), 0.1 * (1 - this.adsT), -0.04 * (1 - this.adsT));
+    if (vm.idleRot) {
+      rot.x += vm.idleRot.x;
+      rot.y += vm.idleRot.y;
+      rot.z += vm.idleRot.z;
+    }
     // sway from look
     const sx = this.swayX.update(clamp(-input.mouseDX * 0.0004, -0.04, 0.04) * (1 - this.adsT * 0.8), dt);
     const sy = this.swayY.update(clamp(input.mouseDY * 0.0004, -0.04, 0.04) * (1 - this.adsT * 0.8), dt);
@@ -706,7 +714,7 @@ export class Weapons {
       this.viewMuzzle.intensity = damp(this.viewMuzzle.intensity, 0, 40, dt);
     }
     // flashlight spill on hands
-    this.viewFlash.intensity = p.flashOn && p.battery > 0 ? 0.6 : 0;
+    this.viewFlash.intensity = p.flashOn && p.battery > 0 ? 0.45 : 0;
     // keep view camera in sync with aspect
     const aspect = window.innerWidth / window.innerHeight;
     if (Math.abs(this.viewCam.aspect - aspect) > 0.001) {

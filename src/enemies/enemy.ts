@@ -239,7 +239,7 @@ export class Enemy {
   damage(amount: number, part: Part, point: THREE.Vector3, dir: THREE.Vector3, knockback: number, weapon: WeaponId | 'blast' | 'boss'): HitResult {
     if (this.dead) return { killed: false, headshot: false };
     const d = this.def;
-    const mul = part === 'head' ? d.headMul : part === 'legL' || part === 'legR' ? d.legMul : part === 'torso' ? 1 : 0.65;
+    const mul = part === 'head' ? d.headMul : part === 'legL' || part === 'legR' ? d.legMul : part === 'torso' ? 1 : 0.8;
     let dmg = amount * mul;
     if (this.state === 'dormant' || this.state === 'downed') dmg *= 1.2;
     this.hp -= dmg;
@@ -323,6 +323,17 @@ export class Enemy {
     ctx.enemies.onDeath(this, headshot);
     bus.emit('enemyKilled', { kind: this.kind, headshot });
     this.opts.onDeath?.(this);
+  }
+
+  /** Becomes a falling corpse without counting as a kill (scripted scares). */
+  corpseDrop(vel: THREE.Vector3) {
+    if (this.dead) return;
+    this.dead = true;
+    this.state = 'dead';
+    this.collider.setEnabled(false);
+    this.ragdoll = new Ragdoll(this.rig, ['torso', 'head', 'armL', 'armR', 'legL', 'legR'], vel, null);
+    this.rig.root.visible = false;
+    ctx.enemies.onDeath(this, false, false);
   }
 
   onGrabEnd(escaped: boolean) {
@@ -503,7 +514,9 @@ export class Enemy {
         face = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
         // hold position close to the player
         const to = p.pos.clone().sub(this.pos).setY(0);
-        if (to.length() > 0.75) this.vel.copy(to.normalize().multiplyScalar(1.5));
+        const dl = to.length();
+        if (dl > 0.95) this.vel.copy(to.normalize().multiplyScalar(1.2));
+        else if (dl < 0.8) this.vel.copy(to.normalize().multiplyScalar(-1.2));
         else this.vel.set(0, 0, 0);
         if (p.grabbedBy !== this) this.setState('chase');
         break;
@@ -778,7 +791,7 @@ export class Enemy {
       aRx = -1.45;
       aLz = 0.35;
       aRz = -0.35;
-      lean = 0.3 + Math.sin(ctx.time * 18) * 0.05;
+      lean = 0.12 + Math.sin(ctx.time * 18) * 0.04;
     }
     if (this.state === 'lunge') {
       aLx = aRx = -1.6;

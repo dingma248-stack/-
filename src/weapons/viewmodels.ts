@@ -18,6 +18,8 @@ export interface Viewmodel {
   ejector: THREE.Object3D;
   hip: THREE.Vector3; // hip-fire offset (camera space)
   ads: THREE.Vector3; // aim-down-sight offset
+  /** extra hip rotation so the model reads well (knife flat towards camera) */
+  idleRot?: THREE.Euler;
 }
 
 const skin = () => stdMat({ map: TEX.skin(), color: 0xc8a890, roughness: 0.8 });
@@ -33,9 +35,11 @@ function hand(parent: THREE.Object3D, right = true) {
   bx(g, 0.025, 0.025, 0.07, glove(), 0.04 * s, 0.03, -0.04, 0.3 * s);
   // wrist + forearm
   const fore = new THREE.Group();
-  fore.position.set(0, -0.02, 0.06);
-  bx(fore, 0.07, 0.065, 0.12, skin(), 0, 0, 0.05);
-  bx(fore, 0.1, 0.095, 0.38, sleeve(), 0, -0.005, 0.28);
+  fore.position.set(0, -0.02, 0.05);
+  // forearm slopes down and back out of the frame so it never crosses the near plane
+  fore.rotation.set(0.85, 0.25 * s, 0);
+  bx(fore, 0.07, 0.065, 0.1, skin(), 0, 0, 0.04);
+  bx(fore, 0.1, 0.095, 0.3, sleeve(), 0, -0.005, 0.22);
   g.add(fore);
   parent.add(g);
   return g;
@@ -273,8 +277,9 @@ export function buildKnife(): Viewmodel {
     parts: { gun, blade },
     muzzle,
     ejector: muzzle,
-    hip: new THREE.Vector3(0.2, -0.2, -0.33),
-    ads: new THREE.Vector3(0.2, -0.2, -0.33),
+    hip: new THREE.Vector3(0.2, -0.21, -0.4),
+    ads: new THREE.Vector3(0.2, -0.21, -0.4),
+    idleRot: new THREE.Euler(0.2, 0.3, -0.75),
   };
 }
 

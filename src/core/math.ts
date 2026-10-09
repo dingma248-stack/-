@@ -38,9 +38,14 @@ export class Spring {
   velocity = 0;
   constructor(public stiffness = 120, public damping = 14) {}
   update(target: number, dt: number) {
-    const f = (target - this.value) * this.stiffness - this.velocity * this.damping;
-    this.velocity += f * dt;
-    this.value += this.velocity * dt;
+    // semi-implicit Euler with substeps so low frame rates never go unstable
+    const n = Math.max(1, Math.ceil(dt / (1 / 120)));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      const f = (target - this.value) * this.stiffness - this.velocity * this.damping;
+      this.velocity += f * h;
+      this.value += this.velocity * h;
+    }
     return this.value;
   }
   kick(v: number) {

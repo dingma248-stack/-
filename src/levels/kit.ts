@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { ctx } from '../core/ctx';
 import type { Level, MapDef } from './level';
 import type { EnemyKind, SpawnOpts, Enemy } from '../enemies/enemy';
-import { P } from './props';
+import { P, bx } from './props';
+import { stdMat, M } from '../render/materials';
+import { TEX } from '../render/textures';
 import type { WeaponId } from '../config';
 import { WEAPONS } from '../config';
 import type { ItemId } from '../player/inventory';
@@ -118,3 +120,36 @@ export const objective = (t: string, pos?: THREE.Vector3) => {
   ctx.story.objective(t);
   ctx.game.objectivePos = pos ?? null;
 };
+
+/**
+ * Compose an ASCII map by carving rectangles: [char, x0, z0, x1, z1] (inclusive).
+ * Single cells can be given as [char, x, z].
+ */
+export function compose(w: number, h: number, fill: string, ops: ([string, number, number] | [string, number, number, number, number])[]): string[] {
+  const g: string[][] = [];
+  for (let z = 0; z < h; z++) g.push(new Array(w).fill(fill));
+  for (const op of ops) {
+    const [ch, x0, z0] = op;
+    const x1 = op.length === 5 ? op[3] : x0;
+    const z1 = op.length === 5 ? op[4] : z0;
+    for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++)
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) if (z >= 0 && z < h && x >= 0 && x < w) g[z][x] = ch;
+  }
+  return g.map((r) => r.join(''));
+}
+
+/** A static dead body lying on the floor. */
+export function corpse(L: Level, pos: THREE.Vector3, rot: number, tint = 0x2a3040, blood = true) {
+  const g = new THREE.Group();
+  const cloth = stdMat({ map: TEX.cloth(), color: tint, roughness: 1 });
+  const pants = stdMat({ map: TEX.cloth(), color: 0x1e2228, roughness: 1 });
+  bx(g, 0.4, 0.2, 0.7, cloth, 0, 0.1, 0);
+  bx(g, 0.2, 0.18, 0.22, M.skin(), 0.03, 0.09, 0.48, 0.4);
+  bx(g, 0.14, 0.14, 0.8, pants, -0.1, 0.07, -0.72, 0.1);
+  bx(g, 0.14, 0.14, 0.8, pants, 0.12, 0.07, -0.74, -0.15);
+  bx(g, 0.1, 0.1, 0.55, cloth, 0.32, 0.06, 0.2, -0.9);
+  bx(g, 0.1, 0.1, 0.55, cloth, -0.3, 0.06, 0.3, 0.6);
+  L.place({ g, cols: [] }, pos.clone().setY(pos.y), rot, { collide: false });
+  if (blood) L.decal('blood', pos.clone().setY(pos.y + 0.01), V(0, 1, 0), 1.8 + Math.random());
+  return g;
+}

@@ -42,7 +42,7 @@ export function buildTitle(L: Level): TitleRun {
     L.place(lamp, V(x, 0.12, z), left ? Math.PI / 2 : -Math.PI / 2, { collide: false, keep: true });
     const head = V(left ? x + 1.05 : x - 1.05, 5.2, z);
     const flick = Math.random() < 0.3 ? 'flicker' : 'steady';
-    L.light(head, 0xff9a48, 14, 13, flick, { emissive: [lamp.head.material as THREE.Material], emissiveBase: 1 });
+    L.light(head, 0xff9a48, 42, 15, flick, { emissive: [lamp.head.material as THREE.Material], emissiveBase: 1 });
   }
   // parked / abandoned cars
   L.place(P.car(0x4a3a30), V(4.4, 0, 20), 0.05);

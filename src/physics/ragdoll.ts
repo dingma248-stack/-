@@ -26,7 +26,7 @@ export class Ragdoll {
   private lastVy = 0;
 
   constructor(rig: Rig, include: Part[], vel: THREE.Vector3, hit: { point: THREE.Vector3; dir: THREE.Vector3; impulse: number; part: Part } | null, single = false) {
-    const scene = ctx.scene;
+    const scene = ctx.level?.group ?? ctx.scene;
     const world = ctx.physics.world;
     rig.root.updateMatrixWorld(true);
     const order: Part[] = single ? ['torso'] : ['head', 'armL', 'armR', 'legL', 'legR', 'torso'];

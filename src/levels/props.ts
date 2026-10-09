@@ -392,6 +392,34 @@ export const P = {
     for (const x of [-len / 2 + 3, len / 2 - 3]) bx(g, 1.3, 2.0, 2.86, stdMat({ color: 0x4a5254, roughness: 0.4, metalness: 0.6 }), x, 1.25, 0);
     return { g, cols: [col(0, 1.55, 0, len / 2, 1.3, 1.4)], foot: [len / 2, 1.4] };
   },
+  bus(burnt = true): PropBuild {
+    const g = new THREE.Group();
+    const body = burnt ? stdMat({ map: TEX.rust(), color: 0x4a3a30, roughness: 0.9 }) : stdMat({ color: 0x3a6a5a, roughness: 0.5, metalness: 0.3 });
+    bx(g, 2.5, 2.6, 10, body, 0, 1.6, 0);
+    const win = stdMat({ color: 0x050505, roughness: 0.2 });
+    for (let z = -4; z <= 4; z += 1.4) {
+      bx(g, 2.52, 0.9, 1.1, win, 0, 2.2, z);
+    }
+    for (const [x, z] of [[-1.15, -3.5], [1.15, -3.5], [-1.15, 3.2], [1.15, 3.2]]) cy(g, 0.5, 0.3, M.rubber(), x, 0.5, z, 10, 0, Math.PI / 2);
+    return { g, cols: [col(0, 1.5, 0, 1.25, 1.5, 5)], foot: [1.3, 5] };
+  },
+  dumpster(): PropBuild {
+    const g = new THREE.Group();
+    const m = stdMat({ map: TEX.metal(), color: 0x2a4a3a, roughness: 0.6, metalness: 0.4 });
+    bx(g, 1.8, 1.1, 1, m, 0, 0.6, 0);
+    bx(g, 1.85, 0.08, 1.05, M.dark(), 0, 1.18, -0.05, 0, -0.15);
+    return { g, cols: [col(0, 0.6, 0, 0.9, 0.6, 0.5)], foot: [0.9, 0.5] };
+  },
+  phoneBooth(): PropBuild {
+    const g = new THREE.Group();
+    const m = stdMat({ color: 0x8a1a12, roughness: 0.5, metalness: 0.3 });
+    for (const [x, z] of [[-0.45, -0.45], [0.45, -0.45], [-0.45, 0.45], [0.45, 0.45]]) bx(g, 0.06, 2.3, 0.06, m, x, 1.15, z);
+    bx(g, 1, 0.15, 1, m, 0, 2.35, 0);
+    bx(g, 0.9, 1.5, 0.02, M.glass(), 0, 1.2, 0.45);
+    bx(g, 0.02, 1.5, 0.9, M.glass(), -0.45, 1.2, 0);
+    bx(g, 0.3, 0.4, 0.15, M.dark(), 0, 1.4, -0.4);
+    return { g, cols: [col(0, 1.2, 0, 0.5, 1.2, 0.5)], foot: [0.5, 0.5] };
+  },
   helicopter(): PropBuild & { rotor: THREE.Group; tailRotor: THREE.Group } {
     const g = new THREE.Group();
     const body = stdMat({ color: 0x2c3a2c, roughness: 0.5, metalness: 0.4 });

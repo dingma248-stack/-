@@ -692,9 +692,9 @@ export class Game {
       c.add(s.color.clone().multiplyScalar(k));
     }
     const hemi = ctx.weapons.viewHemi;
-    hemi.color.lerp(c.clone().multiplyScalar(1.6).addScalar(0.02), 0.2);
+    hemi.color.lerp(c.clone().multiplyScalar(1.6).addScalar(0.07), 0.2);
     hemi.groundColor.copy(hemi.color).multiplyScalar(0.3);
-    hemi.intensity = 1.3;
+    hemi.intensity = 0.9;
   }
 
   // ------------------------------------------------------------ debug

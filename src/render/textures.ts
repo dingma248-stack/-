@@ -533,6 +533,12 @@ export const TEX = {
     c.fillRect(0, 0, w, h);
     c.fillStyle = fg;
     c.font = font;
+    // shrink to fit
+    const m = c.measureText(text).width;
+    if (m > w * 0.9) {
+      const px = parseFloat(/(\d+(?:\.\d+)?)px/.exec(font)?.[1] ?? '18');
+      c.font = font.replace(/\d+(?:\.\d+)?px/, `${Math.floor((px * w * 0.9) / m)}px`);
+    }
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(text, w / 2, h / 2 + 1);

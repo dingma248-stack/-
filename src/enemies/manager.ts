@@ -90,9 +90,11 @@ export class EnemyManager {
     return best;
   }
 
-  onDeath(e: Enemy, headshot: boolean) {
-    this.kills++;
-    if (headshot) this.headshots++;
+  onDeath(e: Enemy, headshot: boolean, count = true) {
+    if (count) {
+      this.kills++;
+      if (headshot) this.headshots++;
+    }
     this.list = this.list.filter((x) => x !== e);
     this.corpses.push(e);
     const max = QUALITY[settings.quality].maxRagdolls;
