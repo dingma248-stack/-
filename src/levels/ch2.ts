@@ -448,9 +448,17 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
         zhou?.teleport(V(22.2, 0, 31.5));
       }
       if (flag('ch2:stalker')) {
-        // restarting during the chase: the stalker is already hunting
-        nw = new Nightwatch(V(23.5, 0, 31), 0, 1);
-        nw.hunt();
+        // restarting during the chase: the stalker is already hunting — but after a save in the
+        // duty room it waits by the broken entrance until you step out, instead of walking up to
+        // that room's only door and camping in it
+        const n = (nw = new Nightwatch(V(23.5, 0, 34), Math.PI, 1));
+        let held = L.inSafeZone(ctx.player.pos);
+        if (!held) n.hunt();
+        L.onUpdate(() => {
+          if (!held || L.inSafeZone(ctx.player.pos)) return;
+          held = false;
+          if (n.state === 'idle') n.hunt();
+        });
         setFlag('ch2:wall', false);
         objective('逃往地下停车场（东侧档案室 → 北走廊）', V(44.5, 0, 17.5));
       }
