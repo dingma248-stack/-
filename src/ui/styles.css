@@ -48,6 +48,7 @@ html, body {
   pointer-events: none;
 }
 .screen.show { opacity: 1; pointer-events: auto; }
+.screen:not(.show) .interactive, .screen:not(.show) .interactive * { pointer-events: none !important; }
 .grain::after {
   content: '';
   position: absolute;

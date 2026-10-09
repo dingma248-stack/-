@@ -94,7 +94,7 @@ export class Nightwatch implements Hittable {
       bx(this.rig.segs.torso.pivot, 0.18, 0.2, 0.05, M.flesh(), -0.05, 0.35, 0.13);
       if (this.coatTail) this.coatTail.scale.set(0.8, 0.6, 1);
     }
-    ctx.enemies.group.add(this.rig.root);
+    (ctx.level?.group ?? ctx.enemies.group).add(this.rig.root);
     this.pos.copy(pos);
     this.yaw = yaw;
     const r = 0.45, halfH = 0.75;

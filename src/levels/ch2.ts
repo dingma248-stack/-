@@ -196,6 +196,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   loot(L, 'ammo9', 6, V(32.6, 0.05, 32.6), 'ch2:ammo2');
   // armory
   const armDoor = L.door(41, 31, { kind: 'metal', locked: 'armory_code', msg: '装备室 · 门禁密码锁' });
+  if (flag('ch2:armory')) armDoor.unlock();
   const keypad = new THREE.Group();
   bx(keypad, 0.16, 0.24, 0.04, M.dark(), 0, 0, 0);
   bx(keypad, 0.12, 0.05, 0.01, stdMat({ color: 0x0a120c, emissive: 0x40ff80, emissiveIntensity: 0.6 }), 0, 0.07, 0.025);

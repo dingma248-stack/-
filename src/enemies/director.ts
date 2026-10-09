@@ -53,6 +53,8 @@ export class Director {
     this.intrusion = null;
     this.intruder = null;
     this.intruding = false;
+    this.musicEnabled = true;
+    this.phantomsEnabled = true;
   }
 
   update(dt: number) {

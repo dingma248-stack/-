@@ -461,6 +461,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     });
     nw?.remove();
     ctx.director.musicEnabled = true;
+    setFlag('ch3:down');
     ctx.game.checkpoint('after');
     objective('沿轨道进入隧道（站台东端）', V(53, -5.4, 49));
     if (lin) lin.following = true;
@@ -497,6 +498,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
       L.ambient('drone', V(28, -3, 47), 0.2, 8);
       L.startAmbience();
       if (flag('ch3:lin') && !flag('ch3:sub')) enableIntrusion();
+      if (flag('ch3:sub')) {
+        L.env.reverb = 'hall';
+        ctx.audio.setReverb('hall');
+      }
       if (cp === 'start') {
         objective('寻找求救的人（四楼隔离病房 · 北侧）', V(37.5, 0, 19));
         void (async () => {
@@ -504,14 +509,16 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
           await say('陈屿', '（车废了。电台里那个女人说她在这家医院……隔离病房。）');
         })();
         ctx.game.checkpoint('start');
-      } else if (cp === 'platform' || (flag('ch3:boss') && !downDone)) {
-        setFlag('ch3:boss', false);
-        if (lin) lin.teleport(V(14, -4.2, 43.5));
-        objective('穿过地铁站台，沿隧道离开');
-      } else if (cp === 'after') {
+      } else if (cp === 'after' || flag('ch3:down')) {
         downDone = true;
         objective('沿轨道进入隧道（站台东端）', V(53, -5.4, 49));
         if (lin) lin.teleport(V(38, -4.2, 44.5));
+      } else if (cp === 'platform' || flag('ch3:boss')) {
+        setFlag('ch3:boss', false);
+        if (lin) lin.teleport(V(14, -4.2, 43.5));
+        objective('穿过地铁站台，沿隧道离开');
+      } else if (cp === 'iso') {
+        objective(ctx.inventory.hasKey('b1card') ? '经地下通道前往地铁港湾站' : '在保安部找到地下通道门禁卡', ctx.inventory.hasKey('b1card') ? V(8.5, 0, 22) : V(30.5, 0, 28));
       }
     },
   };

@@ -968,10 +968,22 @@ export class UI {
 
   showDoc(d: Doc) {
     this.docOpen = true;
-    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">E / ESC · 合上</div>`;
+    this.doc.innerHTML = `<div class="paper interactive"><h4>${d.title}</h4><pre>${d.body}</pre></div><div class="close">E / ESC / 点击 · 合上</div>`;
     this.show(this.doc, true);
     ctx.game.setOverlayPause(true);
+    const opened = performance.now();
+    const onKey = (e: KeyboardEvent) => {
+      if (performance.now() - opened < 250) return; // ignore the key that opened it
+      if (e.code === settings.bindings.interact || e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') this.closeDoc();
+    };
+    const onClick = () => {
+      if (performance.now() - opened > 250) this.closeDoc();
+    };
+    window.addEventListener('keydown', onKey);
+    this.doc.addEventListener('click', onClick);
     this.docClose = () => {
+      window.removeEventListener('keydown', onKey);
+      this.doc.removeEventListener('click', onClick);
       this.docOpen = false;
       this.show(this.doc, false);
       ctx.game.setOverlayPause(false);
@@ -1038,6 +1050,7 @@ export class UI {
 
   // =================================================== CHOICE
   choice(q: string, opts: string[]): Promise<number> {
+    if (ctx.player.dead) return new Promise(() => {});
     this.choiceOpen = true;
     ctx.game.setOverlayPause(true);
     return new Promise((resolve) => {
@@ -1100,10 +1113,13 @@ export class UI {
     for (const e of [this.pause, this.inv, this.doc, this.keypadEl, this.death, this.choiceEl, this.card, this.loading]) this.show(e, false);
     this.inventoryOpen = this.docOpen = this.keypadOpen = this.choiceOpen = false;
     this.panelHost.innerHTML = '';
+    this.docClose?.();
+    this.docClose = null;
     this.prompt(null);
     this.subtitle(null, '', false);
     this.grabPrompt(false);
     this.letterbox(false);
+    this.countdown(null);
   }
 
   // =================================================== DEBUG

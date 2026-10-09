@@ -157,6 +157,7 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
   cityscape(L);
 
   // ---------------- characters ----------------
+  if (o.fresh && flag('linSaved') === undefined) setFlag('linSaved', true);
   const linSaved = flag('linSaved') === true;
   const lin = new NPC(cp === 'roof' ? V(52, 0, 45) : V(6.5, 0, 23.5), Math.PI / 2, 'lin');
   if (!linSaved) lin.pose = 'hurt';
@@ -423,7 +424,6 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
     start() {
       if (o.fresh) {
         ensureLoadout(['knife', 'pistol', 'shotgun', 'magnum', 'launcher'], { ammo9: 24, shells: 10, ammo357: 6, grenade: 2, bandage: 1 }, 4);
-        if (flag('linSaved') === undefined) setFlag('linSaved', true);
       }
       ctx.director.ambientPool = [
         { name: 'pulse', vol: 0.4, dist: [6, 12] },

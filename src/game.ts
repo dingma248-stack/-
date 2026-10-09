@@ -57,6 +57,7 @@ export class Game {
   objectivePos: THREE.Vector3 | null = null;
   killed = new Set<string>();
   private fps = 60;
+  private loadSeq = 0;
   private deathT = 0;
   private flashT = 0;
 
@@ -197,6 +198,8 @@ export class Game {
     ctx.weapons.reset();
     for (const w of s.inv.weapons) if (w !== 'knife') ctx.weapons.owned.push(w);
     Object.assign(ctx.weapons.mags, s.inv.mags);
+    // come back holding the best everyday weapon rather than the knife
+    ctx.weapons.current = [...ctx.weapons.owned].reverse().find((w) => w !== 'launcher' && w !== 'knife') ?? 'knife';
     ctx.story.flags = { ...s.flags };
     this.killed = new Set((s.flags.__killed as string[]) ?? []);
     ctx.player.health = s.health;
@@ -219,13 +222,17 @@ export class Game {
 
   /** Story progression: carry everything over. */
   nextChapter(id: string) {
+    if (ctx.player.dead || this.state !== 'play') return;
     this.killed.clear();
     this.startChapter(id, ctx.difficulty, 'start', false);
   }
 
   /** Chapter select / new chapter. Fresh loadout is given by the chapter itself when starting from scratch. */
   async startChapter(id: string, diff: Difficulty, checkpoint = 'start', fresh = true, save?: SaveData) {
+    const seq = ++this.loadSeq;
     ctx.audio.resume();
+    ctx.audio.setDuck(1, 0.1);
+    this.overlayPause = false;
     ctx.difficulty = diff;
     this.state = 'loading';
     ctx.ui.hideTitle();
@@ -238,6 +245,7 @@ export class Game {
     ctx.audio.stopAll(0.5);
     input.requestLock();
     await new Promise((r) => setTimeout(r, 650));
+    if (seq !== this.loadSeq) return;
     this.unloadLevel();
     const meta = CHAPTERS[chapterIndex(id)];
     this.chapterId = id;
@@ -252,9 +260,11 @@ export class Game {
     void L;
     unlockChapter(id);
     await new Promise((r) => setTimeout(r, 400));
+    if (seq !== this.loadSeq) return;
     ctx.ui.showLoading(false);
     if (checkpoint === 'start' && !save) {
       await ctx.ui.chapterCard(meta);
+      if (seq !== this.loadSeq) return;
     }
     this.beginPlay();
   }
@@ -356,6 +366,8 @@ export class Game {
   }
 
   quitToTitle() {
+    this.loadSeq++;
+    this.overlayPause = false;
     ctx.ui.hideAllOverlays();
     ctx.ui.hideEnding();
     this.canvas.classList.remove('blurred', 'dim');
@@ -426,6 +438,7 @@ export class Game {
   }
 
   finish(endingId: 'dawn' | 'alone', text: { title: string; en: string; body: string }) {
+    if (ctx.player.dead) return;
     this.state = 'ending';
     input.exitLock();
     ctx.ui.showHud(false);
@@ -559,10 +572,13 @@ export class Game {
       ctx.weapons.update(gdt);
       ctx.enemies.update(gdt);
       ctx.props.update(gdt);
-      ctx.level.update(gdt, ctx.time);
-      ctx.story.update(gdt);
+      if (!dying) {
+        // scripts, triggers and timers stop the moment the player dies
+        ctx.level.update(gdt, ctx.time);
+        ctx.story.update(gdt);
+        this.run?.update?.(gdt);
+      }
       ctx.director.update(gdt);
-      this.run?.update?.(gdt);
       this.updateShared(gdt);
       this.healCd -= gdt;
       // exploration
