@@ -707,7 +707,11 @@ export class Game {
       if (ang > 0.55 && d > 0.9) continue;
       const score = ang * 2 + d * 0.3;
       if (score < bestScore && it.label()) {
-        if (!ctx.physics.lineOfSight(eye, it.pos.clone().lerp(eye, 0.12))) continue;
+        if (!ctx.physics.lineOfSight(eye, it.pos.clone().lerp(eye, 0.12))) {
+          // loot on a shelf sits inside the shelf's one box collider: that box may be in the way, nothing else
+          const hit = ctx.physics.raycast(eye, to, d, GROUPS.sight);
+          if (!hit || !hit.collider.containsPoint(it.pos)) continue;
+        }
         bestScore = score;
         best = it;
       }

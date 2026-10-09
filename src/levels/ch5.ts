@@ -85,9 +85,13 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
     L.light(V(x, 2.6, 24), 0xff5030, 5, 7, 'pulse', { speed: 0.4, phase: x * 0.1 });
   }
   L.ambient('pulse', V(15, 1.5, 24), 0.5, 3);
-  enemy('infected', V(13, 0, 24.5), { id: 'ch5:c1', state: 'idle', doctor: true, yaw: -Math.PI / 2 });
-  enemy('crawler', V(18, 0, 24), { id: 'ch5:c2', state: 'ceiling' });
-  enemy('runner', V(19.5, 0, 23.5), { id: 'ch5:c3', state: 'dormant', wakeDist: 3 });
+  // the corridor ambush is only for the way in: the 'core' respawn point is right under the
+  // ceiling crawler, which would drop on a low-health player on every retry
+  if (cp === 'start') {
+    enemy('infected', V(13, 0, 24.5), { id: 'ch5:c1', state: 'idle', doctor: true, yaw: -Math.PI / 2 });
+    enemy('crawler', V(18, 0, 24), { id: 'ch5:c2', state: 'ceiling' });
+    enemy('runner', V(19.5, 0, 23.5), { id: 'ch5:c3', state: 'dormant', wakeDist: 3 });
+  }
   // supply room
   L.door(15, 22, { kind: 'slide' });
   L.tube(15, 19, { kind: 'buzz', color: 0xe8f4ff, intensity: 6 });

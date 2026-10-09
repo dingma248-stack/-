@@ -339,7 +339,9 @@ export class HeartBoss implements Hittable {
 
   /** Explosions and slams force the ribcage open. */
   openChest(time = 3.2) {
-    if (this.state === 'dying' || this.state === 'dead' || this.state === 'phase') return;
+    // not refused during 'phase': that roar ends by opening the chest, or the boss would stay
+    // invulnerable for good (damage() already ignores blasts while it roars)
+    if (this.state === 'dying' || this.state === 'dead') return;
     this.setState('open');
     this.stateT = -time + 3.2;
     ctx.audio.play('squelch', { pos: this.heartPos(), vol: 1, rate: 0.6 });
