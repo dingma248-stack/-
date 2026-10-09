@@ -179,7 +179,8 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
     hdl.rotation.x = 0.9;
     b.add(hdl);
     breakerHandles[k] = hdl;
-    const pos = V(51.5 + i * 1.3, 1.4, 27.95);
+    // A on the left as you face the panel (looking +z, screen-left is +x), as the whiteboard says
+    const pos = V(54.1 - i * 1.3, 1.4, 27.95);
     L.place({ g: b, cols: [] }, pos, Math.PI, { collide: false, keep: true });
     L.interact(pos.clone().add(V(0, 0, -0.3)), () => (flag('ch4:power') ? null : `[E] 拉下断路器 ${k}`), () => flipBreaker(k));
   });
