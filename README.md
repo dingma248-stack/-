@@ -20,6 +20,8 @@ npm run preview    # 预览构建结果
 
 需要支持 WebGL2 的现代浏览器（Chrome / Edge / Firefox 最新版）。建议佩戴耳机——3D 音效使用 HRTF 空间化。
 
+**提示**：进入游戏后点击画面锁定鼠标；觉得太暗可在 **设置 → 画面 → 亮度** 中调节。
+
 **部署**：推送到 `main` 分支后，`.github/workflows/deploy.yml` 会自动构建并发布到 GitHub Pages（需在仓库 Settings → Pages 中把 Source 设为 *GitHub Actions*）。
 
 ---

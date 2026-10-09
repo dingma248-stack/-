@@ -528,7 +528,8 @@ export class UI {
       <div class="grab"><div class="t">连按 <b>E</b> 挣脱</div><div class="bar"><i></i></div></div>
       <div class="wget"><div class="a">ACQUIRED</div><div class="b"></div><div class="c"></div></div>
       <div class="layer letterbox"></div>
-      <div class="skiphint">ENTER · 跳过</div>`;
+      <div class="skiphint">ENTER · 跳过</div>
+      <div class="lockhint">点击画面以控制视角</div>`;
     const q = (s: string) => this.hud.querySelector(s) as HTMLElement;
     this.ecg = q('.hud-health canvas') as HTMLCanvasElement;
     this.ecgCtx = this.ecg.getContext('2d')!;
@@ -670,6 +671,8 @@ export class UI {
     tk[3].style.transform = `translateX(${spread}px)`;
     this.cross.style.opacity = w.current === 'knife' ? '0.5' : w.adsT > 0.8 ? '0.25' : p.sprinting ? '0' : '1';
     this.skip.classList.toggle('on', ctx.story.inCutscene);
+    const needLock = ctx.game.state === 'play' && !input.locked && !this.inventoryOpen && !this.docOpen && !this.keypadOpen && !this.choiceOpen && !ctx.story.inCutscene;
+    (this.hud.querySelector('.lockhint') as HTMLElement).classList.toggle('on', needLock);
   }
 
   prompt(text: string | null, pos?: THREE.Vector3) {

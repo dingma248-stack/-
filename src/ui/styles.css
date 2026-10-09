@@ -536,3 +536,6 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 .countdown small { display: block; font-size: 9px; letter-spacing: 0.5em; color: rgba(224, 71, 58, 0.7); margin-bottom: 4px; }
 .countdown i { font-style: normal; font-size: 16px; opacity: 0.7; }
 .countdown.urgent { animation: breathe 0.6s infinite; }
+
+.lockhint { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); font-size: 13px; letter-spacing: 0.4em; color: var(--bone-dim); padding: 8px 22px; border: 1px solid var(--hair); background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity 0.4s; }
+.lockhint.on { opacity: 1; animation: breathe 2.4s ease-in-out infinite; }
