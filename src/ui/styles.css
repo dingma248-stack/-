@@ -512,7 +512,7 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 #death .menu .menu-item { padding-left: 30px; }
 
 /* ------------------------------------------------ ending */
-#ending { z-index: 38; background: #000; display: flex; align-items: center; padding-left: 12vw; }
+#ending { z-index: 38; background: #000; display: flex; align-items: safe center; padding-left: 12vw; overflow-y: auto; }
 #ending .a { font-family: var(--mono); font-size: 11px; letter-spacing: 0.5em; color: var(--red); }
 #ending .b { font-size: clamp(40px, 5vw, 72px); letter-spacing: 0.35em; margin-top: 18px; }
 #ending .c { font-family: var(--latin); font-style: italic; font-size: 18px; letter-spacing: 0.3em; color: var(--bone-faint); margin-top: 12px; }

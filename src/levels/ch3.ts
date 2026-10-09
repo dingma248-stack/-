@@ -51,6 +51,8 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     // subway: the platform and track lie south of the ER lobby, not under it (cells can't stack)
     ['b', 6, 37, 11, 38],
     ['u', 2, 39, 17, 49],
+    // its NE corner touched the ward block above: walking north fell under the ward floor
+    ['#', 17, 39],
     ['P', 2, 50, 53, 53],
     ['T', 2, 54, 53, 56],
     ['k', 34, 46, 38, 48],
@@ -197,7 +199,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
   T(37, 14.5, 'buzz', 6);
   savePoint(L, V(39.4, 0, 16.8), -Math.PI / 2, 'iso');
   // Lin's .357 rounds (dropped in meetLin, which doesn't run again after a reload from 'iso' on)
-  if (flag('ch3:lin')) loot(L, 'ammo357', 4, V(36.2, 0.79, 13.4), 'ch3:mag');
+  if (flag('ch3:lin')) loot(L, 'ammo357', 4, V(35.3, 0.79, 13.4), 'ch3:mag');
   L.safe(L.box(34, 12, 41, 18));
   L.pickup(
     {
@@ -356,7 +358,7 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
     ctx.weapons.give('magnum', 6);
     ctx.ui.weaponGet('magnum');
     ctx.audio.play('pickup', { bus: 'ui' });
-    loot(L, 'ammo357', 4, V(36.2, 0.79, 13.4), 'ch3:mag');
+    loot(L, 'ammo357', 4, V(35.3, 0.79, 13.4), 'ch3:mag');
     lin!.following = true;
     enableIntrusion();
     objective(ctx.inventory.hasKey('b1card') ? '经地下通道前往地铁港湾站' : '在保安部找到地下通道门禁卡', ctx.inventory.hasKey('b1card') ? V(8.5, 0, 22) : V(30.5, 0, 28));

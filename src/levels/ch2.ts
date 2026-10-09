@@ -214,6 +214,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
       armDoor.open(ctx.player.pos);
       kpLight.color.set(0x40ff80);
       setFlag('ch2:armory');
+      objective('取得装备室里的霰弹枪', V(41.5, 0, 35));
     });
   });
   void pad;
@@ -237,8 +238,10 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.light(V(44.5, 1.5, 11), 0x40ff60, 3, 5, 'steady');
   L.light(V(44.5, -1.5, 7), 0xff3020, 3, 6, 'pulse');
   // garage
+  // pillars sit inside nav row z 2: on the row boundary they and the cars sealed every lane,
+  // so garage enemies and the stalker couldn't path through
   for (let x = 6; x < 44; x += 6) {
-    L.place({ g: pillar(), cols: [{ c: V(0, 1.4, 0), h: V(0.3, 1.4, 0.3) }], foot: [0.3, 0.3] }, V(x, -3, 3), 0);
+    L.place({ g: pillar(), cols: [{ c: V(0, 1.4, 0), h: V(0.3, 1.4, 0.3) }], foot: [0.3, 0.3] }, V(x, -3, 2.5), 0);
   }
   const carCols = [0x2a2a2a, 0x4a3a30, 0x2a3a4a, 0x5a5a52, 0x1b1e24];
   // parked along the walls: nosed in, a 4.2 m car doesn't fit the 5 m deep garage
@@ -444,7 +447,8 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
         objective('回到大厅', V(29, 0, 30));
         zhou?.teleport(V(22.2, 0, 31.5));
       } else {
-        objective(flag('ch2:armory') ? '取得装备室里的霰弹枪' : '在局长办公室寻找装备室的密码', V(6, 0, 34.5));
+        if (flag('ch2:armory')) objective('取得装备室里的霰弹枪', V(41.5, 0, 35));
+        else objective('在局长办公室寻找装备室的密码', V(6, 0, 34.5));
         zhou?.teleport(V(22.2, 0, 31.5));
       }
       if (flag('ch2:stalker')) {

@@ -261,7 +261,7 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
       setFlag('ch1:gotPistol');
       void (async () => {
         await wait(1.2);
-        ctx.ui.toast('{aim}瞄准 · {fire}射击 · {reload} 换弹');
+        ctx.ui.toast('{aim} 瞄准 · {fire} 射击 · {reload} 换弹');
         await wait(3.4);
         ctx.ui.toast('打头。省子弹。');
         await say('陈屿', '（分局……老周今晚值班。）');

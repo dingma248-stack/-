@@ -198,7 +198,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
     ctx.director.scare('high');
     corridorZ.wake();
     await wait(1.4);
-    ctx.ui.toast('{fire}挥刀 · {melee} 快速近战 · 也可以绕开它');
+    ctx.ui.toast('{fire} 挥刀 · {melee} 快速近战 · 也可以绕开它');
   });
   // dock reveal
   let dockSeen = false;

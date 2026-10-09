@@ -180,7 +180,7 @@ export class UI {
       <div class="mark">雾港 · 长夜</div>
       <div class="bar"><i></i></div>
       <div class="press">Press any key<small>按任意键开始</small></div>
-      <div class="hint">${withKeys('{forward}{left}{back}{right} 移动 · 鼠标瞄准 · {fire}射击 · {aim}瞄准 · {interact} 交互 · {flashlight} 手电')}</div>`;
+      <div class="hint">${withKeys('{forward}{left}{back}{right} 移动 · 鼠标瞄准 · {fire} 射击 · {aim} 瞄准 · {interact} 交互 · {flashlight} 手电')}</div>`;
     this.bootBar = this.boot.querySelector('.bar i')!;
     this.bootPress = this.boot.querySelector('.press')!;
   }
@@ -283,9 +283,10 @@ export class UI {
     return p;
   }
 
-  private showDifficulty() {
+  /** Difficulty cards; starts a new game unless a chapter-select run passes its own start. */
+  private showDifficulty(start: (d: Difficulty) => void = (d) => ctx.game.newGame(d), back = () => this.showTitle()) {
     const prog = readProgress();
-    const p = this.panel('难度', 'Choose your night', () => this.showTitle());
+    const p = this.panel('难度', 'Choose your night', back);
     const cards = h('div', 'cards difficulty');
     const defs: [Difficulty, string, string, boolean][] = [
       ['easy', '简单', '更多物资，敌人更脆弱。适合想体验故事的人。', true],
@@ -299,7 +300,7 @@ export class UI {
         c.addEventListener('click', () => {
           this.select();
           this.panelHost.innerHTML = '';
-          ctx.game.newGame(id);
+          start(id);
         });
       }
       cards.appendChild(c);
@@ -332,8 +333,10 @@ export class UI {
             return;
           }
           this.select();
-          this.panelHost.innerHTML = '';
-          ctx.game.selectChapter(c.id, 'normal');
+          this.showDifficulty(
+            (d) => ctx.game.selectChapter(c.id, d),
+            () => this.showChapters(),
+          );
         });
       }
       cards.appendChild(el);
@@ -848,6 +851,10 @@ export class UI {
     this.cross.style.visibility = on ? 'hidden' : '';
     this.healthBlock.style.visibility = on ? 'hidden' : '';
     this.ammoBlock.style.visibility = on ? 'hidden' : '';
+    // the bars cover the top 11vh, where these sit
+    this.batt.style.visibility = on ? 'hidden' : '';
+    this.objEl.style.visibility = on ? 'hidden' : '';
+    (this.hud.querySelector('.hud-time') as HTMLElement).style.visibility = on ? 'hidden' : '';
   }
 
   countdown(sec: number | null) {

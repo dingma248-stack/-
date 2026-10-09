@@ -599,7 +599,7 @@ export class Game {
       ctx.time += gdt;
       // a retry keeps the run's clock, so the death screen (which can sit open for minutes) must not add to it
       if (playing) this.stats.time += dt;
-      this.clock = Math.min(this.clockCap, this.clock + (this.clockRate * gdt) / 60);
+      this.clock = Math.min(this.clockCap, this.clock + this.clockRate * gdt); // clockRate is game-minutes per second
       if (playing) {
         this.handleInput();
         p.pollInput();

@@ -177,7 +177,8 @@ export class Nightwatch implements Hittable {
 
   damage(amount: number, part: Part, point: THREE.Vector3, dir: THREE.Vector3, knockback: number, weapon: WeaponId | 'blast' | 'boss'): HitResult {
     if (this.dead || this.state === 'defeated') return { killed: false, headshot: false };
-    const vuln = this.state === 'stunned' || this.state === 'shocked' ? 2 : 1;
+    // form 2 is meant to be beaten on the live rail: a wall stun is only a small window
+    const vuln = this.state === 'shocked' ? 2 : this.state === 'stunned' ? (this.form === 2 ? 1.25 : 2) : 1;
     const mul = part === 'head' ? 1.5 : part === 'torso' ? 1 : 0.7;
     const dmg = amount * mul * vuln;
     this.flashT = 0.08;

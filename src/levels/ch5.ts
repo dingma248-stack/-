@@ -317,8 +317,10 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
     const s = ctx.story;
     await s.cutscene(async () => {
       await s.camTo(V(56, 2.2, 40), V(53, 1.2, 35), 1);
+      // stop following first: the follow logic would stand her back up or pull her off her mark
+      lin.following = false;
       if (linSaved) {
-        lin.walkTo(V(52, 0, 36));
+        void lin.walkTo(V(52, 0, 36));
         await wait(1.2);
         // one last grasp from below
         const tpos = V(54.5, 0, 38.5);
@@ -338,8 +340,10 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
         ctx.particles.gore(tpos.clone().setY(1), V(0, 1, 0), 0);
         await say('陈屿', '上飞机。');
       } else {
-        lin.walkTo(V(51.5, 0, 39));
-        await wait(1.5);
+        const mark = V(51.5, 0, 39);
+        await Promise.race([lin.walkTo(mark), wait(3)]);
+        lin.teleport(mark);
+        await lin.walkTo(mark); // arrives on the next update and clears the path
         lin.pose = 'sit';
         await s.camTo(V(50, 1.3, 41.5), V(51.5, 1, 39), 1);
         await say('林薇', '……我走不动了。别过来。');

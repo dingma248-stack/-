@@ -423,6 +423,9 @@ export class Player {
   private updateFlashlight(dt: number) {
     const f = this.flash;
     const envMul = ctx.level?.env.flashlight ?? 1;
+    // swap in a spare when running low, and also once the cell is already flat
+    // (picking up a spare after the light died used to leave it dead)
+    if (this.flashOn && this.battery < 15 && ctx.inventory.count('battery') > 0) this.useBattery(true);
     if (this.flashOn && this.battery > 0) {
       this.battery = Math.max(0, this.battery - PLAYER.flashlightDrain * dt);
       let lv = 1;
@@ -430,7 +433,6 @@ export class Player {
         this.flashFlicker -= dt;
         if (this.flashFlicker <= 0) this.flashFlicker = rand(0.05, 0.6);
         lv = this.flashFlicker < 0.08 ? 0.2 : 0.75;
-        if (this.battery < 15 && ctx.inventory.count('battery') > 0) this.useBattery(true);
       }
       f.intensity = 55 * lv * envMul;
     } else f.intensity = 0;
@@ -453,7 +455,7 @@ export class Player {
   toggleFlashlight() {
     this.flashOn = !this.flashOn;
     ctx.audio.play('flashlight', { bus: 'ui', vol: 0.8 });
-    if (this.flashOn && this.battery <= 0) ctx.ui.toast('手电没电了');
+    if (this.flashOn && this.battery <= 0 && ctx.inventory.count('battery') <= 0) ctx.ui.toast('手电没电了');
   }
 
   footstep(vol: number) {
