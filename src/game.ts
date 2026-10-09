@@ -345,6 +345,8 @@ export class Game {
   checkpoint(id: string, manual = false) {
     this.checkpointId = id;
     const p = ctx.player;
+    // count this save in the stats it writes, or Continue forgets it
+    if (manual) this.stats.saves++;
     const data: SaveData = {
       version: 1,
       chapter: this.chapterId,
@@ -359,7 +361,6 @@ export class Game {
       clock: this.clock,
       savedAt: Date.now(),
     };
-    if (manual) this.stats.saves++;
     writeSave(data);
     ctx.ui.savePulse();
   }
@@ -368,9 +369,12 @@ export class Game {
     const s = readSave();
     ctx.ui.showDeath(false);
     ctx.ui.showPause(false);
-    if (s && s.chapter === this.chapterId) this.loadSave(s);
-    else if (s) this.loadSave(s);
-    else this.newGame(ctx.difficulty);
+    if (s) {
+      // a retry rewinds the world, not the run's clock
+      const time = this.stats.time;
+      this.loadSave(s);
+      this.stats.time = Math.max(this.stats.time, time);
+    } else this.newGame(ctx.difficulty);
   }
 
   quitToTitle() {
@@ -435,6 +439,13 @@ export class Game {
   // ------------------------------------------------------------ death / ending
   onPlayerDeath() {
     this.stats.deaths++;
+    // a retry (or quit + Continue) reloads the checkpoint's stats: the death and the time it cost count there too
+    const s = readSave();
+    if (s) {
+      s.stats.deaths++;
+      s.stats.time = Math.max(s.stats.time, this.stats.time);
+      writeSave(s);
+    }
     this.state = 'dead';
     this.deathT = 0;
     ctx.audio.play('stingerLow', { vol: 0.9, bus: 'music' });
