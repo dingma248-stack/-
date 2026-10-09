@@ -28,7 +28,7 @@ export class Story {
   inCutscene = false;
   flags: Record<string, unknown> = {};
   private camAnim: { from: THREE.Vector3; to: THREE.Vector3; lookFrom: THREE.Vector3; lookTo: THREE.Vector3; t: number; dur: number } | null = null;
-  readonly cutCam = new THREE.PerspectiveCamera(60, 1, 0.05, 200);
+  readonly cutCam = new THREE.PerspectiveCamera(60, 1, 0.05, 420);
   private lineQueue: Promise<void> = Promise.resolve();
   private speaking = 0;
 

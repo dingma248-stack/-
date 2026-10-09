@@ -281,7 +281,7 @@ export class Game {
     return L;
   }
 
-  private setupRain(on: boolean) {
+  setupRain(on: boolean) {
     if (on && !this.rain) {
       this.rain = new Rain();
       this.scene.add(this.rain.mesh);

@@ -412,7 +412,9 @@ export class Level {
     this.env = env;
     // the level under construction is the current one (NPCs, bosses etc. attach to it)
     ctx.level = this;
-    this.hemi = new THREE.HemisphereLight(env.hemiSky, env.hemiGround, env.hemiI);
+    // ground colour doubles as bounce light so ceilings never read as a black void
+    const ground = new THREE.Color(env.hemiGround).lerp(new THREE.Color(env.hemiSky), 0.5);
+    this.hemi = new THREE.HemisphereLight(env.hemiSky, ground, env.hemiI);
     this.amb = new THREE.AmbientLight(env.ambient, env.ambientI);
     this.group.add(this.hemi, this.amb);
   }
@@ -544,6 +546,7 @@ export class Level {
           };
           if (!nb || nb.t === 'void') {
             if (!nb) addFace(c.wall, c.fy, top);
+            else addFace(c.side, c.fy - 8, c.fy, 0.4, 0.9);
             continue;
           }
           if (nb.t === 'wall') {
@@ -726,7 +729,7 @@ export class Level {
     t.mat.color.set(opts.color ?? 0xfff2d8);
     const pos = new THREE.Vector3(x, y, z);
     this.place(t, pos, opts.rot ?? 0, { keep: true, collide: false, nav: false });
-    const s = this.light(pos.clone().add(new THREE.Vector3(0, -0.3, 0)), opts.color ?? 0xffeccc, opts.intensity ?? 7, opts.distance ?? 9, opts.kind ?? 'buzz', { emissive: [t.mat], emissiveBase: 1 });
+    const s = this.light(pos.clone().add(new THREE.Vector3(0, -0.55, 0)), opts.color ?? 0xffeccc, opts.intensity ?? 7, opts.distance ?? 9, opts.kind ?? 'buzz', { emissive: [t.mat], emissiveBase: 1 });
     if (opts.hum !== false && (opts.kind === 'flicker' || opts.kind === 'dying')) this.ambient('hum', pos, 0.25, 1.5);
     return s;
   }

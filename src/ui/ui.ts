@@ -512,6 +512,7 @@ export class UI {
       <div class="objective"></div>
       <div class="hud-time"><div class="clk"></div><div class="purge"></div><div class="loc"></div></div>
       <div class="savepulse">已存档</div>
+      <div class="countdown"></div>
       <div class="hud-health fadeable">
         <div class="lbl"><b>稳定</b><span class="hr">HR 72</span></div>
         <canvas width="200" height="46"></canvas>
@@ -771,6 +772,18 @@ export class UI {
     this.cross.style.visibility = on ? 'hidden' : '';
     this.healthBlock.style.visibility = on ? 'hidden' : '';
     this.ammoBlock.style.visibility = on ? 'hidden' : '';
+  }
+
+  countdown(sec: number | null) {
+    const el = this.hud.querySelector('.countdown') as HTMLElement;
+    if (sec === null) {
+      el.classList.remove('on');
+      return;
+    }
+    el.classList.add('on');
+    const s = Math.max(0, sec);
+    el.innerHTML = `<small>自毁倒计时 · SELF-DESTRUCT</small>${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}<i>.${String(Math.floor((s % 1) * 100)).padStart(2, '0')}</i>`;
+    el.classList.toggle('urgent', s < 60);
   }
 
   savePulse() {

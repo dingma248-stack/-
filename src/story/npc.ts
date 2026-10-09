@@ -26,7 +26,7 @@ export class NPC {
   following = false;
   private followT = 0;
 
-  constructor(pos: THREE.Vector3, yaw: number, kind: 'zhou' | 'lin') {
+  constructor(pos: THREE.Vector3, yaw: number, kind: 'zhou' | 'lin' | 'pilot') {
     if (kind === 'zhou') {
       this.rig = humanoid(4242, { police: true, scale: 1.04 });
       // cap
@@ -41,6 +41,12 @@ export class NPC {
       gun.position.set(0, -0.3, 0.02);
       gun.rotation.x = -Math.PI / 2;
       this.gun = gun;
+    } else if (kind === 'pilot') {
+      this.rig = humanoid(3131, { scale: 1 });
+      const head = this.rig.headMesh;
+      bx(head, 0.24, 0.16, 0.25, stdMat({ color: 0x2a3a2a, roughness: 0.6 }), 0, 0.22, 0);
+      bx(head, 0.2, 0.06, 0.04, stdMat({ color: 0x0a0a0a, roughness: 0.1, metalness: 0.6 }), 0, 0.15, 0.12);
+      for (const m of this.rig.mats.slice(1)) (m as THREE.MeshStandardMaterial).color.set(0x3a4a34);
     } else {
       this.rig = humanoid(1717, { doctor: true, scale: 0.93, thin: true });
       const head = this.rig.headMesh;
