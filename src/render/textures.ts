@@ -27,9 +27,10 @@ const RELIEF: Record<string, { relief: number; blur?: number; gloss?: number }> 
   woodPanel: { relief: 2, gloss: 0.5 },
   woodFloor: { relief: 2.5, gloss: 0.8 },
   crate: { relief: 2.5 },
-  tileWhite: { relief: 3, gloss: 1.2 },
-  tileGreen: { relief: 3, gloss: 1.2 },
-  tileFloor: { relief: 1.2 },
+  // glazed tile: keep the grout bevels shallow, steeper ones catch the torch as a grid of crosses that crawls as you move
+  tileWhite: { relief: 1.6, gloss: 1.2 },
+  tileGreen: { relief: 1.6, gloss: 1.2 },
+  // no tileFloor: its checker squares are coplanar and have no grout, so brightness-as-height sinks every dark one
   linoleum: { relief: 1, blur: 2 },
   carpet: { relief: 1.5 },
   metal: { relief: 2, gloss: 0.8 },
@@ -625,14 +626,15 @@ export const TEX = {
     const t = make('cookie', 128, (c, s, r) => {
       c.fillStyle = '#000';
       c.fillRect(0, 0, s, s);
-      // hot centre, a faint reflector ring, long soft spill (a hard dark/bright ring read as a target reticle)
+      // hot centre, a faint reflector ring, long soft spill (a hard dark/bright ring read as a target reticle).
+      // Same total light as the old ringed beam: how far the torch reaches is part of the horror balance.
       const g = c.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
       g.addColorStop(0, 'rgb(255,250,235)');
-      g.addColorStop(0.18, 'rgb(242,234,214)');
-      g.addColorStop(0.32, 'rgb(196,189,172)');
-      g.addColorStop(0.4, 'rgb(208,200,182)');
-      g.addColorStop(0.5, 'rgb(130,124,112)');
-      g.addColorStop(0.85, 'rgb(34,32,29)');
+      g.addColorStop(0.18, 'rgb(238,230,210)');
+      g.addColorStop(0.32, 'rgb(168,162,147)');
+      g.addColorStop(0.4, 'rgb(176,169,154)');
+      g.addColorStop(0.5, 'rgb(98,94,86)');
+      g.addColorStop(0.85, 'rgb(28,27,24)');
       g.addColorStop(1, 'rgb(0,0,0)');
       c.fillStyle = g;
       c.fillRect(0, 0, s, s);
