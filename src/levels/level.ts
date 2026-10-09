@@ -391,6 +391,9 @@ export class Pickup {
       }
       if (left > 0) {
         k.count = left;
+        // remember what's left (as "id=count") so a checkpoint reload doesn't refill the pile
+        for (const t of this.level.taken) if (t.startsWith(this.id + '=')) this.level.taken.delete(t);
+        this.level.taken.add(`${this.id}=${left}`);
         ctx.ui.toast(`拾取了部分 ${ITEMS[k.item].name}（背包已满）`);
         ctx.audio.play('pickup', { bus: 'ui' });
         return;
@@ -941,8 +944,11 @@ export class Level {
   }
 
   pickup(kind: PickupKind, pos: THREE.Vector3, id?: string) {
-    const pid = id ?? `${this.id}:p${this.pickupSeq++}`;
+    // loot dropped at run time (crates break in any order) is named by its spot, not by its turn
+    const pid = id ?? (this.finalized ? `${this.id}:p@${pos.x.toFixed(1)},${pos.z.toFixed(1)}` : `${this.id}:p${this.pickupSeq++}`);
     if (this.taken.has(pid)) return null;
+    const partial = [...this.taken].find((t) => t.startsWith(pid + '='));
+    if (partial && kind.type === 'item') kind = { ...kind, count: Number(partial.slice(pid.length + 1)) };
     const p = new Pickup(this, pid, kind, pos);
     this.pickups.push(p);
     // during the build the props it may lie on aren't all placed yet: finalize() settles those
