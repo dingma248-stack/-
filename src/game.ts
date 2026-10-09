@@ -342,6 +342,10 @@ export class Game {
   }
 
   // ------------------------------------------------------------ checkpoints
+  /** Last checkpoint written, kept in memory so a retry works even when localStorage is unavailable. */
+  private lastSave: SaveData | null = null;
+
+  /** Returns false when the browser refused to store it (the retry still works from memory). */
   checkpoint(id: string, manual = false) {
     this.checkpointId = id;
     const p = ctx.player;
@@ -361,12 +365,14 @@ export class Game {
       clock: this.clock,
       savedAt: Date.now(),
     };
-    writeSave(data);
-    ctx.ui.savePulse();
+    this.lastSave = data;
+    const ok = writeSave(data);
+    if (ok) ctx.ui.savePulse();
+    return ok;
   }
 
   restartCheckpoint() {
-    const s = readSave();
+    const s = readSave() ?? this.lastSave;
     ctx.ui.showDeath(false);
     ctx.ui.showPause(false);
     if (s) {
@@ -440,11 +446,12 @@ export class Game {
   onPlayerDeath() {
     this.stats.deaths++;
     // a retry (or quit + Continue) reloads the checkpoint's stats: the death and the time it cost count there too
-    const s = readSave();
+    const s = readSave() ?? this.lastSave;
     if (s) {
       s.stats.deaths++;
       s.stats.time = Math.max(s.stats.time, this.stats.time);
       writeSave(s);
+      this.lastSave = s;
     }
     this.state = 'dead';
     this.deathT = 0;

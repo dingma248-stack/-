@@ -89,9 +89,9 @@ export function savePoint(L: Level, pos: THREE.Vector3, rot: number, id: string)
   void glow;
   L.ambient('radio', pos.clone().add(V(0, 1, 0)), 0.08, 1);
   L.interact(pos.clone().add(V(0, 1, 0)), '[E] 收音机 · 存档', () => {
-    ctx.game.checkpoint(id, true);
-    ctx.audio.play('save', { bus: 'ui' });
-    ctx.ui.toast('进度已保存');
+    const ok = ctx.game.checkpoint(id, true);
+    ctx.audio.play(ok ? 'save' : 'beepErr', { bus: 'ui' });
+    ctx.ui.toast(ok ? '进度已保存' : '无法写入存档：浏览器禁止了本地存储');
   });
 }
 
