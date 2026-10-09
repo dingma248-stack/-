@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Level } from './level';
 import { P } from './props';
 import { ctx } from '../core/ctx';
-import { V, enemy, loot, say, wait, objective, radio, flag, setFlag, compose, corpse, savePoint, ensureLoadout, type BuildOpts, type ChapterRun } from './kit';
+import { V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, compose, corpse, savePoint, ensureLoadout, type BuildOpts, type ChapterRun } from './kit';
 import { NPC } from '../story/npc';
 import { stdMat } from '../render/materials';
 import { rand } from '../core/math';
@@ -344,23 +344,30 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
     // just in front of the gate (z 1.2): at z -0.4 he stood inside the facade wall, unseen
     const zhou = new NPC(V(50.5, 0.12, 1.8), 0, 'zhou');
     zhou.pose = 'aim';
-    // a runner charges from the east as the gate opens
+    // a runner charges from the east as the gate opens; Zhou has it in his sights from the start
     const r = enemy('runner', V(57, 0.12, 2.5), { state: 'chase', yaw: -Math.PI / 2 });
+    if (r) zhou.face(r.pos);
     await ctx.story.cutscene(async () => {
       const s = ctx.story;
-      await s.camTo(V(50.5, 1.7, 5.5), V(50.5, 1.4, 0), 1.2);
-      await say('老周', '陈屿？！是你吗？别傻站着——快进来！');
+      let framed = false;
+      const cam = s.camTo(V(50.5, 1.7, 5.5), V(50.5, 1.4, 0), 1.2).then(() => void (framed = true));
+      // he fires once the camera is on him, or sooner if the runner gets within pouncing range of you,
+      // and shouts as he shoots: the cutscene holds you still, and holding fire until his line was over
+      // let it bite you (36 HP, or kill you outright)
+      await until(() => framed || !r || r.dead || r.pos.distanceTo(ctx.player.pos) < 4.6);
+      const shout = cam.then(() => say('老周', '陈屿？！是你吗？别傻站着——快进来！'));
       // Zhou covers the plaza, turning to each target now that he can be seen
       for (const e of [r, ...ctx.enemies.alive.filter((x) => x.pos.distanceTo(V(50.5, 0, 3)) < 14)]) {
         if (!e || e.dead) continue;
         zhou.face(e.pos);
-        await wait(0.35);
+        if (e !== r) await wait(0.35);
         const muzzle = zhou.gun ? zhou.gun.getWorldPosition(new THREE.Vector3()) : V(50.5, 1.4, 2.2);
         ctx.audio.play('pistol', { pos: muzzle, vol: 1 });
         ctx.particles.muzzle(muzzle, e.headPos().sub(muzzle).normalize());
         e.damage(999, 'head', e.headPos(), e.headPos().sub(muzzle).normalize(), 1, 'pistol');
         await wait(0.45);
       }
+      await shout;
       zhou.face(ctx.player.pos);
       await wait(0.8);
       await say('老周', '……一枪爆头。你小子还没忘本事。');
