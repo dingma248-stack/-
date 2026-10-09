@@ -502,7 +502,8 @@ export class Game {
   // ------------------------------------------------------------ gameplay helpers
   useHeal(pref?: ItemId) {
     const p = ctx.player;
-    if (this.healCd > 0 || p.dead) return;
+    // the cooldown only stops H-spam; picking an item in the backpack (which freezes the cooldown) is deliberate
+    if ((this.healCd > 0 && !pref) || p.dead) return;
     if (p.health >= PLAYER.maxHealth) {
       ctx.ui.toast('生命值已满');
       return;
