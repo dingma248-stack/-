@@ -22,6 +22,9 @@ export class NPC {
   ragdoll: Ragdoll | null = null;
   private resolveWalk: (() => void) | null = null;
   readonly gun: THREE.Object3D | null = null;
+  /** loosely follow the player */
+  following = false;
+  private followT = 0;
 
   constructor(pos: THREE.Vector3, yaw: number, kind: 'zhou' | 'lin') {
     if (kind === 'zhou') {
@@ -85,6 +88,26 @@ export class NPC {
     if (this.dead) {
       this.ragdoll?.update(dt);
       return;
+    }
+    if (this.following) {
+      this.followT -= dt;
+      const d = this.pos.distanceTo(ctx.player.pos);
+      if (this.followT <= 0) {
+        this.followT = 1.2;
+        if (d > 3.2) {
+          const back = ctx.player.pos.clone().add(ctx.player.forward.setY(0).normalize().multiplyScalar(-1.6));
+          const path = ctx.level!.nav.findPath(this.pos, back, 2500);
+          if (path) {
+            this.path = path;
+            this.speed = d > 7 ? 3.6 : 1.7;
+            this.pose = d > 7 ? 'run' : 'walk';
+          }
+        }
+      }
+      if (d < 2.2 && this.path.length) {
+        this.path = [];
+        this.pose = 'idle';
+      }
     }
     if (this.path.length) {
       const wp = this.path[0];

@@ -206,6 +206,11 @@ export class Nightwatch implements Hittable {
     let face: number | null = null;
     const toP = Math.atan2(p.pos.x - this.pos.x, p.pos.z - this.pos.z);
     const ground = ctx.level!.nav.heightAt(this.pos);
+    // fell into a pit (subway tracks): it hauls itself out after a moment
+    if (this.grounded && this.inPit() && (this.state === 'stalk' || (this.state === 'charge' && this.stateT > 0.4))) {
+      this.setState('climb');
+      ctx.audio.play('bossImpact', { pos: this.pos, vol: 0.8 });
+    }
     switch (this.state) {
       case 'idle':
       case 'scripted':
@@ -404,9 +409,11 @@ export class Nightwatch implements Hittable {
     this.sync(dt);
   }
 
+  /** cells with floor below this height count as a pit (subway tracks) */
+  pitBelow = -Infinity;
   inPit() {
     const c = ctx.level!.cellAt(this.pos);
-    return !!c && c.fy < -0.5;
+    return !!c && c.t === 'floor' && c.fy < this.pitBelow;
   }
 
   private move(dt: number) {
@@ -437,6 +444,16 @@ export class Nightwatch implements Hittable {
     this.body.setNextKinematicTranslation({ x: p.x, y: p.y + 1.2, z: p.z });
     this.vel.set(0, 0, 0);
     this.sync(0);
+  }
+
+  /** Scripted leap between two points (entrances). */
+  leapFromTo(a: THREE.Vector3, b: THREE.Vector3) {
+    this.warp(a, Math.atan2(b.x - a.x, b.z - a.z));
+    this.leapFrom.copy(a);
+    this.leapTo.copy(b);
+    this.setState('leap');
+    this.stateT = 0.25;
+    this.hitDone = false;
   }
 
   /** Scripted walk without AI (entrances). */
