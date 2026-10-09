@@ -22,6 +22,9 @@ class Input {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Tab' || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
       if (e.ctrlKey && (e.code === 'KeyW' || e.code === 'KeyS' || e.code === 'KeyD')) e.preventDefault();
+      // while the mouse is captured, keep accidental Ctrl / Alt / Cmd shortcuts (Ctrl+E, Ctrl+U,
+      // Ctrl+F, Ctrl+S, Alt+D...) from leaving the game; the few the browser reserves can't be blocked
+      if (this.locked && (e.ctrlKey || e.altKey || e.metaKey)) e.preventDefault();
       if (this.capture) {
         e.preventDefault();
         const cb = this.capture;
@@ -36,6 +39,7 @@ class Input {
       this.down.add(e.code);
     });
     window.addEventListener('keyup', (e) => {
+      if (this.locked && e.key === 'Alt') e.preventDefault(); // Firefox: Alt shows the menu bar
       this.down.delete(e.code);
       this.released.add(e.code);
     });

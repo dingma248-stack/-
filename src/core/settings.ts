@@ -14,7 +14,7 @@ export const ACTION_LABELS: Record<Action, string> = {
 
 export const DEFAULT_BINDINGS: Record<Action, string> = {
   forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sprint: 'ShiftLeft',
-  crouch: 'ControlLeft', fire: 'Mouse0', aim: 'Mouse2', reload: 'KeyR', weapon1: 'Digit1', weapon2: 'Digit2',
+  crouch: 'KeyC', fire: 'Mouse0', aim: 'Mouse2', reload: 'KeyR', weapon1: 'Digit1', weapon2: 'Digit2',
   weapon3: 'Digit3', weapon4: 'Digit4', lastWeapon: 'KeyQ', melee: 'KeyV', interact: 'KeyE', flashlight: 'KeyF',
   heal: 'KeyH', inventory: 'Tab', pause: 'Escape',
 };
@@ -59,12 +59,31 @@ const DEFAULTS: Settings = {
 
 const KEY = 'mistport.settings.v1';
 
+/**
+ * Ctrl / Alt / Cmd turn whatever is pressed with them into browser shortcuts
+ * (Ctrl+E focuses the address bar, Ctrl+U opens the page source, Ctrl+W closes
+ * the tab and can't be blocked), so they can't be game keys.
+ */
+export const isReservedKey = (code: string) => /^(Control|Alt|Meta|OS)/.test(code);
+
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return structuredClone(DEFAULTS);
     const parsed = JSON.parse(raw) as Partial<Settings>;
-    return { ...structuredClone(DEFAULTS), ...parsed, bindings: { ...DEFAULT_BINDINGS, ...(parsed.bindings ?? {}) } };
+    const bindings = { ...DEFAULT_BINDINGS, ...(parsed.bindings ?? {}) };
+    // older versions crouched on Ctrl: move any such binding back to its default key
+    let migrated = false;
+    for (const a of Object.keys(bindings) as Action[]) {
+      const def = DEFAULT_BINDINGS[a];
+      if (isReservedKey(bindings[a]) && !Object.values(bindings).includes(def)) {
+        bindings[a] = def;
+        migrated = true;
+      }
+    }
+    const s = { ...structuredClone(DEFAULTS), ...parsed, bindings };
+    if (migrated) localStorage.setItem(KEY, JSON.stringify(s));
+    return s;
   } catch {
     return structuredClone(DEFAULTS);
   }

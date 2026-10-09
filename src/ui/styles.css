@@ -261,6 +261,7 @@ input[type='range']::-moz-range-thumb { width: 9px; height: 9px; background: var
 .keybind { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--bone); cursor: pointer; padding: 6px 12px; border: 1px solid var(--hair); width: max-content; transition: border-color 0.2s, background 0.2s; }
 .keybind:hover { border-color: var(--bone-faint); }
 .keybind.wait { border-color: var(--red); color: var(--red); animation: breathe 1s infinite; }
+.settings-note { margin-top: 22px; font-size: 12px; line-height: 1.9; letter-spacing: 0.12em; color: var(--bone-faint); max-width: 560px; }
 .btn-line { display: inline-block; margin-top: 28px; font-size: 13px; letter-spacing: 0.4em; color: var(--bone-faint); cursor: pointer; border-bottom: 1px solid var(--hair); padding-bottom: 6px; }
 .btn-line:hover { color: var(--bone); border-color: var(--red); }
 

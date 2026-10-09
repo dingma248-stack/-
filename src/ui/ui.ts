@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ctx } from '../core/ctx';
 import { input } from '../core/input';
-import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, type Action } from '../core/settings';
+import { settings, saveSettings, resetSettings, ACTION_LABELS, keyLabel, isReservedKey, type Action } from '../core/settings';
 import { WEAPONS, DIFFICULTY, type Difficulty, type WeaponId, type Quality } from '../config';
 import { CHAPTERS, LORE, PURGE_CLOCK, fmtClock, type ChapterMeta } from '../levels/meta';
 import { readProgress, readSave } from '../save/save';
@@ -390,6 +390,11 @@ export class UI {
             k.classList.add('wait');
             k.textContent = '按下新按键…';
             input.capture = (code) => {
+              if (isReservedKey(code)) {
+                k.textContent = 'Ctrl / Alt / ⌘ 不能使用';
+                setTimeout(render, 1400);
+                return;
+              }
               k.classList.remove('wait');
               if (code !== 'Escape' || a === 'pause') {
                 // swap if another action already uses this key
@@ -405,6 +410,7 @@ export class UI {
           r.appendChild(h('div', 'val'));
           body.appendChild(r);
         }
+        body.appendChild(h('div', 'settings-note', 'Ctrl、Alt、⌘ 和其他键一起按会触发浏览器快捷键（比如 Ctrl+W 会直接关闭页面），所以不能设为游戏按键。'));
         const reset = h('div', 'btn-line interactive', '恢复默认设置');
         reset.addEventListener('click', () => {
           resetSettings();
@@ -474,7 +480,7 @@ export class UI {
 
   // =================================================== LOADING / CARD
   showLoading(on: boolean) {
-    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${pick(LORE)}</div><div class="spin">LOADING</div>`;
+    if (on) this.loading.innerHTML = `<div class="frag"><em>— 档案碎片 —</em>${pick(LORE).replace(/\{(\w+)\}/g, (_m, a: Action) => keyLabel(settings.bindings[a]))}</div><div class="spin">LOADING</div>`;
     this.show(this.loading, on);
   }
 
