@@ -526,7 +526,10 @@ export function buildCh3(cp: string, o: BuildOpts): ChapterRun {
       if (flag('ch3:sub')) {
         L.env.reverb = 'hall';
         ctx.audio.setReverb('hall');
+        L.mapTitle = '地铁三号线 · 港湾站';
       }
+      // the chapter's place2 (shown by beginPlay) is the subway; the hospital comes first
+      ctx.ui.setLocation(L.mapTitle);
       if (cp === 'start') {
         objective('寻找求救的人（四楼隔离病房 · 北侧）', V(37.5, 0, 19));
         void (async () => {
