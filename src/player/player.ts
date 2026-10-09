@@ -315,6 +315,12 @@ export class Player {
     this.fallSpeed = this.grounded ? 0 : Math.max(this.fallSpeed, -this.vel.y);
     if (!this.grounded && this.vel.y < 0) this.fallSpeed = -this.vel.y;
     ctx.props.pushNear(this.pos, this.vel);
+    // fell out of the world (off the ch5 roof into the open sky): no floor anywhere lies below -5.4 m,
+    // and nothing would ever end the fall
+    if (this.pos.y < -30 && !this.dead) {
+      this.health = 0;
+      this.die();
+    }
   }
 
   private setCrouch(want: boolean) {
