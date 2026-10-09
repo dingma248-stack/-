@@ -860,7 +860,15 @@ export class UI {
         </div>`;
       this.menu(this.pause.querySelector('.menu')!, [
         { label: '继续', en: 'Resume', act: () => ctx.game.resume() },
-        { label: '设置', en: 'Settings', act: () => this.showSettings(() => this.showPause(true, stats)) },
+        {
+          label: '设置',
+          en: 'Settings',
+          act: () => {
+            // #pause (full-screen, above #panels) would sit over the panel and swallow every click
+            this.show(this.pause, false);
+            this.showSettings(() => this.showPause(true, stats));
+          },
+        },
         { label: '从检查点重试', en: 'Retry checkpoint', act: () => ctx.game.restartCheckpoint() },
         { label: '返回标题', en: 'Quit to title', act: () => ctx.game.quitToTitle() },
       ]);
