@@ -71,10 +71,38 @@ export interface Trigger {
 
 type ResolvedCell = Required<Pick<CellDef, 't'>> & { floor: string; wall: string; ceil: string | null; fy: number; cy: number | null; side: string; nav: boolean };
 
+/** A prop as placed, with its meshes as built: finalize() merges static ones away, these stay valid. */
+export interface Placed {
+  build: PropBuild;
+  pos: THREE.Vector3;
+  rotY: number;
+  meshes: THREE.Mesh[];
+  dynamic: boolean;
+  collide: boolean;
+  /** world bounds, filled in on first use */
+  box?: THREE.Box3;
+}
+
+const _ray = new THREE.Raycaster();
+const _v = new THREE.Vector3();
+const _box = new THREE.Box3();
+const _up = new THREE.Vector3(0, 1, 0);
+const _down = new THREE.Vector3(0, -1, 0);
+
+/** World bounds from the stored matrix: Box3.expandByObject would recompute it, wrongly for meshes finalize() detached. */
+function worldBox(m: THREE.Mesh, out: THREE.Box3) {
+  if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+  return out.copy(m.geometry.boundingBox!).applyMatrix4(m.matrixWorld);
+}
+
 // ------------------------------------------------------------------ Door
 export type DoorKind = 'wood' | 'metal' | 'slide' | 'glass' | 'cell';
 
 export class Door {
+  /** swing doors stop square against the wall (they used to overshoot to ~1.7 rad, into it) */
+  static readonly OPEN = Math.PI / 2;
+  /** how far the hinge sits in from the jamb: the open leaf then clears the wall it lies against */
+  static readonly INSET = 0.04;
   pivot = new THREE.Group();
   leaf: THREE.Mesh | THREE.Group;
   body: RAPIER.RigidBody;
@@ -211,7 +239,7 @@ export class Door {
       if (this.alongX) this.dir = from.z > this.hinge.z ? 1 : -1;
       else this.dir = from.x > this.hinge.x ? -1 : 1;
     }
-    this.target = this.kind === 'slide' ? 1 : 1.62;
+    this.target = this.kind === 'slide' ? 1 : Door.OPEN;
     if (fast) this.vel = this.dir * 8;
     ctx.audio.play(this.kind === 'slide' ? 'pneumatic' : this.kind === 'wood' ? 'doorOpen' : 'metalDoor', { pos: this.center, vol: this.kind === 'wood' ? 0.8 : 0.6 });
     bus.emit('noise', { pos: this.center.clone(), radius: 5, source: 'world' });
@@ -267,7 +295,11 @@ export class Door {
     this.vel += f * dt;
     this.angle += this.vel * dt;
     if (this.kind === 'slide') this.angle = clamp(this.angle, 0, 1);
-    else this.angle = clamp(this.angle, 0, 1.75);
+    else if (this.angle > Door.OPEN) {
+      // hits the wall: a dull bounce instead of swinging on through it
+      this.angle = Door.OPEN;
+      this.vel = -Math.abs(this.vel) * 0.25;
+    } else this.angle = Math.max(0, this.angle);
     if (this.kind === 'slide') {
       const ax = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.baseYaw);
       this.pivot.position.copy(this.hinge).addScaledVector(ax, this.angle * this.width * 0.95);
@@ -398,9 +430,12 @@ export class Level {
   lights: LightSource[] = [];
   ambience: { name: string; pos?: THREE.Vector3; vol: number; voice: Voice | null; ref?: number }[] = [];
   safeZones: THREE.Box3[] = [];
+  /** every prop placed, kept so pickups can rest on them after the merge (and for layout audits) */
+  placed: Placed[] = [];
   /** pickups taken / flags restored from checkpoint */
   taken = new Set<string>();
   private staticMeshes: THREE.Mesh[] = [];
+  private finalized = false;
   private pickupSeq = 0;
   private hemi: THREE.HemisphereLight;
   private amb: THREE.AmbientLight;
@@ -532,14 +567,14 @@ export class Level {
           const nb = C(x + dx, z + dz);
           const top = c.cy ?? c.fy + wallH;
           const uAxis = dx === 0 ? 0 : 1; // along x for N/S walls
-          const addFace = (mat: string, y0: number, y1: number, shadeBottom = 0.62, shadeTop = 1) => {
+          const addFace = (mat: string, y0: number, y1: number, shadeBottom = 0.62, shadeTop = 1, facing = n) => {
             if (y1 - y0 < 0.001) return;
             const s = surface(mat).scale;
             const u0 = (uAxis === 0 ? p0[0] : p0[1]) / s, u1 = (uAxis === 0 ? p1[0] : p1[1]) / s;
             quad(
               bucket(mat),
               [[p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [p1[0], y1, p1[1]], [p0[0], y1, p0[1]]],
-              n,
+              facing,
               [[u0, y0 / s], [u1, y0 / s], [u1, y1 / s], [u0, y1 / s]],
               [shadeBottom, shadeBottom, shadeTop, shadeTop],
             );
@@ -562,8 +597,19 @@ export class Level {
           if (nb.fy > c.fy + 0.001) addFace(nb.side, c.fy, nb.fy, 0.6, 0.95);
           // neighbouring lower ceiling → soffit
           if (c.cy !== null && nb.cy !== null && nb.cy < c.cy - 0.001 && c.ceil) addFace(nb.ceil ?? c.ceil, nb.cy, c.cy, 0.8, 0.7);
-          if (c.cy !== null && nb.cy === null) {
-            // sky next to a roofed cell: nothing (open edge)
+          if (c.cy !== null && nb.cy === null && nb.fy + wallH > c.cy) {
+            // a roofed opening onto open sky (a shop door, a display window): wall it over up to the
+            // facade's height in the facade's own material, or the street sees through a slot above it
+            let mat = 'concrete';
+            for (let k = 1; k <= 4 && mat === 'concrete'; k++)
+              for (const sgn of [-1, 1]) {
+                const side = dx === 0 ? C(x + k * sgn, z) : C(x, z + k * sgn);
+                if (side?.t === 'wall') {
+                  mat = side.wall;
+                  break;
+                }
+              }
+            addFace(mat, c.cy, nb.fy + wallH, 0.9, 1, [-n[0], -n[1], -n[2]]);
           }
         }
       }
@@ -683,8 +729,18 @@ export class Level {
   }
 
   // ---------------- builders ----------------
-  /** Place a prop. Static props get merged later for fewer draw calls. */
+  /**
+   * Place a prop. Static props get merged later for fewer draw calls.
+   * y = 0 means "on the floor": on a raised cell (a curb, a ledge) the prop sits on it instead of sinking in.
+   */
   place(build: PropBuild, pos: THREE.Vector3, rotY = 0, opts: { dynamic?: { mass: number; surface?: string; breakable?: { hp: number; kind: BreakKind; onBreak?: (p: DynProp) => void } }; nav?: boolean; keep?: boolean; surface?: string; collide?: boolean } = {}) {
+    if (pos.y === 0) pos = pos.clone().setY(this.floorY(pos.x, pos.z));
+    if (build.scatter) this.scatter(build, pos, rotY);
+    const meshes: THREE.Mesh[] = [];
+    build.g.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh);
+    });
+    this.placed.push({ build, pos: pos.clone(), rotY, meshes, dynamic: !!opts.dynamic, collide: opts.collide !== false });
     if (opts.dynamic) {
       return { build, prop: ctx.props.add(build, pos, rotY, opts.dynamic.mass, opts.dynamic.surface ?? 'wood', opts.dynamic.breakable) };
     }
@@ -712,6 +768,97 @@ export class Level {
         if (m.isMesh && !(m.material as THREE.Material).transparent && !(m.material as THREE.MeshBasicMaterial).isMeshBasicMaterial) this.staticMeshes.push(m);
       });
     return { build, prop: null };
+  }
+
+  /**
+   * Loose pieces (papers, rubble) follow the floor under each piece; any that land in a wall,
+   * off an edge or inside solid furniture placed before them are dropped.
+   */
+  private scatter(build: PropBuild, pos: THREE.Vector3, rotY: number) {
+    const base = this.floorY(pos.x, pos.z);
+    const p = new THREE.Vector3();
+    for (const o of [...build.g.children]) {
+      p.copy(o.position).applyAxisAngle(_up, rotY).add(pos);
+      const c = this.cellAt(p);
+      if (!c || c.t !== 'floor' || this.inSolidProp(p.setY(c.fy + 0.05))) build.g.remove(o);
+      else o.position.y += c.fy - base;
+    }
+  }
+
+  /** Inside (or within a hand's width of) the collider of a static prop placed so far: wheels and trim stick out past it. */
+  private inSolidProp(p: THREE.Vector3, margin = 0.15) {
+    const l = new THREE.Vector3();
+    for (const s of this.placed) {
+      if (s.dynamic || !s.collide) continue;
+      for (const c of s.build.cols) {
+        l.copy(p).sub(s.pos).applyAxisAngle(_up, -s.rotY).sub(c.c);
+        if (Math.abs(l.x) < c.h.x + margin && Math.abs(l.y) < c.h.y && Math.abs(l.z) < c.h.z + margin) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Opaque static prop meshes under or around `box`: what a pickup can come to rest on (or push aside). */
+  private surfacesNear(box: THREE.Box3) {
+    const out: THREE.Mesh[] = [];
+    for (const p of this.placed) {
+      if (p.dynamic) continue;
+      if (!p.box) {
+        p.box = new THREE.Box3();
+        for (const m of p.meshes) p.box.union(worldBox(m, _box));
+      }
+      if (p.box.max.x < box.min.x || p.box.min.x > box.max.x || p.box.max.z < box.min.z || p.box.min.z > box.max.z || p.box.min.y > box.max.y) continue;
+      for (const m of p.meshes) {
+        const mat = m.material as THREE.Material;
+        if (!mat.transparent && !(mat as THREE.MeshBasicMaterial).isMeshBasicMaterial) out.push(m);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Settles a pickup onto whatever is under it. Hand-placed heights are only approximate
+   * (0.8 on a 0.785 desk top, 0.05 above the floor, 1.2 next to a shelf board), which left
+   * items hovering or half sunk into shelves.
+   */
+  private rest(p: Pickup) {
+    const box = new THREE.Box3();
+    p.g.updateMatrixWorld(true);
+    p.g.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) box.union(worldBox(o as THREE.Mesh, _box));
+    });
+    if (box.isEmpty()) return;
+    const all = this.surfacesNear(box.clone().expandByScalar(0.05));
+    // it rests on the shelf board, not on the knick-knacks, which then make room for it
+    const near = all.filter((m) => !m.userData.clutter);
+    const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+    const hx = (box.max.x - box.min.x) * 0.35, hz = (box.max.z - box.min.z) * 0.35;
+    // lift a sunk item at most a few cm, and never up through the board or desk top above it
+    _ray.set(_v.set(cx, box.min.y + 0.01, cz), _up);
+    _ray.far = 0.2;
+    const over = _ray.intersectObjects(near, false)[0];
+    const top = box.min.y + Math.min(0.12, over ? over.distance - 0.005 : 0.12);
+    let sup = -Infinity;
+    for (const [dx, dz] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      _v.set(cx + dx * hx, top, cz + dz * hz);
+      const c = this.cellAt(_v);
+      if (c?.t === 'floor' && c.fy <= top) sup = Math.max(sup, c.fy);
+      _ray.set(_v, _down);
+      _ray.far = 4;
+      const hit = _ray.intersectObjects(near, false)[0];
+      if (hit) sup = Math.max(sup, hit.point.y);
+    }
+    if (sup === -Infinity) return;
+    const dy = sup + 0.001 - box.min.y;
+    p.g.position.y += dy;
+    p.pos.y += dy;
+    p.interact.pos.y += dy;
+    box.translate(_v.set(0, dy, 0)).expandByScalar(0.01);
+    for (const m of all) {
+      if (!m.userData.clutter || !worldBox(m, _box).intersectsBox(box)) continue;
+      m.removeFromParent();
+      for (const s of this.placed) s.meshes = s.meshes.filter((x) => x !== m);
+    }
   }
 
   light(pos: THREE.Vector3, color: THREE.ColorRepresentation, intensity: number, distance: number, kind: LightKind = 'steady', extra: Omit<Partial<LightSource>, 'color' | 'pos'> = {}) {
@@ -753,11 +900,13 @@ export class Level {
     const cell = this.cells[z * this.w + x];
     const height = Math.min(2.15, (cell.cy ?? 3) - fy - 0.03);
     const width = opts.width ?? 1;
-    const hinge = alongX ? new THREE.Vector3(x, fy, z + 0.5) : new THREE.Vector3(x + 0.5, fy, z);
+    const kind = opts.kind ?? 'wood';
+    const inset = kind === 'slide' ? 0 : Door.INSET;
+    const hinge = alongX ? new THREE.Vector3(x + inset, fy, z + 0.5) : new THREE.Vector3(x + 0.5, fy, z + inset);
     const baseYaw = alongX ? 0 : -Math.PI / 2;
     const cells: [number, number][] = [];
     for (let i = 0; i < Math.round(width); i++) cells.push(alongX ? [x + i, z] : [x, z + i]);
-    const d = new Door(this, opts.kind ?? 'wood', hinge, baseYaw, width - 0.02, height, alongX, cells, opts.locked ?? null, opts.msg ?? '门锁着。');
+    const d = new Door(this, kind, hinge, baseYaw, width - 0.02 - inset, height, alongX, cells, opts.locked ?? null, opts.msg ?? '门锁着。');
     this.doors.push(d);
     return d;
   }
@@ -786,6 +935,8 @@ export class Level {
     if (this.taken.has(pid)) return null;
     const p = new Pickup(this, pid, kind, pos);
     this.pickups.push(p);
+    // during the build the props it may lie on aren't all placed yet: finalize() settles those
+    if (this.finalized) this.rest(p);
     return p;
   }
 
@@ -805,8 +956,9 @@ export class Level {
     return t;
   }
 
-  /** Persistent level decal (not recycled like bullet holes). */
+  /** Persistent level decal (not recycled like bullet holes). A floor decal at y = 0 goes on that cell's floor. */
   decal(kind: 'blood' | 'hand' | 'drag' | 'scorch', pos: THREE.Vector3, normal: THREE.Vector3, size: number, rot = Math.random() * 6) {
+    if (pos.y === 0 && normal.y > 0.9) pos = pos.clone().setY(this.floorY(pos.x, pos.z));
     const map = kind === 'blood' ? TEX.bloodDecal(Math.floor(Math.random() * 3)) : kind === 'hand' ? TEX.handprint() : kind === 'drag' ? TEX.drag() : TEX.scorch();
     const mat = applyRetro(new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, roughness: 0.3 }));
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
@@ -833,6 +985,8 @@ export class Level {
 
   /** Merge static prop meshes by material to cut draw calls. */
   finalize() {
+    for (const p of this.pickups) this.rest(p);
+    this.finalized = true;
     const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
     for (const m of this.staticMeshes) {
       if (!m.parent) continue;

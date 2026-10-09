@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { M, stdMat } from '../render/materials';
+import { M, stdMat, propMat } from '../render/materials';
 import { TEX } from '../render/textures';
 import { seeded } from '../core/math';
 
@@ -14,6 +14,8 @@ export interface PropBuild {
   cols: ColDef[];
   /** footprint half-size for nav blocking (local XZ) */
   foot?: [number, number];
+  /** loose pieces that each follow the floor under them (see Level.place) */
+  scatter?: boolean;
 }
 
 const geoCache = new Map<string, THREE.BufferGeometry>();
@@ -65,6 +67,16 @@ export function cy(g: THREE.Object3D, r: number, h: number, mat: THREE.Material,
 }
 const col = (x: number, y: number, z: number, hx: number, hy: number, hz: number): ColDef => ({ c: new THREE.Vector3(x, y, z), h: new THREE.Vector3(hx, hy, hz) });
 
+/** Paper lying on a surface: pulled forward in depth, or vertex snapping makes it flicker into the floor. */
+export const flatPaper = () =>
+  propMat('paperFlat', () => {
+    const m = stdMat({ map: TEX.paper(), roughness: 1 });
+    m.polygonOffset = true;
+    m.polygonOffsetFactor = -2;
+    m.polygonOffsetUnits = -2;
+    return m;
+  });
+
 export const P = {
   desk(w = 1.6, d = 0.8): PropBuild {
     const g = new THREE.Group();
@@ -109,7 +121,8 @@ export const P = {
         const bh = 0.15 + r() * 0.25;
         if (r() < 0.75) {
           const mat = r() < 0.5 ? M.crate() : r() < 0.5 ? M.paper() : M.fabric();
-          bx(g, bw, bh, d * (0.5 + r() * 0.4), mat, x + bw / 2, y + bh / 2 + 0.015, 0, (r() - 0.5) * 0.2);
+          // clutter: cleared away where a pickup is put on the shelf (see Level.rest)
+          bx(g, bw, bh, d * (0.5 + r() * 0.4), mat, x + bw / 2, y + bh / 2 + 0.015, 0, (r() - 0.5) * 0.2).userData.clutter = true;
         }
         x += bw + 0.03;
       }
@@ -167,7 +180,10 @@ export const P = {
     bx(g, 2, 0.08, 0.7, s, 0, 0.75, 0);
     bx(g, 1.9, 0.1, 0.65, stdMat({ color: 0x9fb0a8, roughness: 0.8 }), 0, 0.83, 0);
     bx(g, 0.5, 0.12, 0.5, M.white(), -0.7, 0.92, 0);
-    for (const [x, z] of [[-0.9, -0.3], [0.9, -0.3], [-0.9, 0.3], [0.9, 0.3]]) bx(g, 0.04, 0.7, 0.04, s, x, 0.37, z);
+    for (const [x, z] of [[-0.9, -0.3], [0.9, -0.3], [-0.9, 0.3], [0.9, 0.3]]) {
+      bx(g, 0.04, 0.66, 0.04, s, x, 0.39, z);
+      cy(g, 0.05, 0.04, M.rubber(), x, 0.05, z, 6, Math.PI / 2);
+    }
     bx(g, 1.8, 0.03, 0.03, s, 0, 0.25, -0.3);
     bx(g, 1.8, 0.03, 0.03, s, 0, 0.25, 0.3);
     return { g, cols: [col(0, 0.45, 0, 1, 0.45, 0.35)], foot: [1, 0.35] };
@@ -177,8 +193,8 @@ export const P = {
     const s = M.steel();
     bx(g, 2, 0.1, 0.95, s, 0, 0.5, 0);
     bx(g, 1.95, 0.16, 0.9, stdMat({ color: 0xb8bcb0, roughness: 0.9 }), 0, 0.62, 0);
-    bx(g, 0.04, 0.9, 0.95, s, -1, 0.5, 0);
-    bx(g, 0.04, 0.6, 0.95, s, 1, 0.35, 0);
+    bx(g, 0.04, 0.95, 0.95, s, -1, 0.475, 0);
+    bx(g, 0.04, 0.65, 0.95, s, 1, 0.325, 0);
     bx(g, 0.45, 0.1, 0.6, M.white(), -0.72, 0.74, 0);
     bx(g, 1.2, 0.04, 0.95, stdMat({ map: TEX.cloth(), color: 0x8a9a92, roughness: 1 }), 0.3, 0.72, 0, 0, 0, 0.02);
     return { g, cols: [col(0, 0.4, 0, 1, 0.4, 0.48)], foot: [1, 0.48] };
@@ -268,7 +284,7 @@ export const P = {
   gasTank(): PropBuild {
     const g = new THREE.Group();
     const red = stdMat({ color: 0x8a1a12, roughness: 0.45, metalness: 0.5 });
-    cy(g, 0.28, 1.25, red, 0, 0.7, 0, 10);
+    cy(g, 0.28, 1.32, red, 0, 0.66, 0, 10);
     const top = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), red);
     top.position.y = 1.32;
     g.add(top);
@@ -314,6 +330,7 @@ export const P = {
     bx(g, 2, 0.5, 0.2, m, 0, 0.6, -0.33);
     bx(g, 0.2, 0.3, 0.85, m, -0.95, 0.55, 0);
     bx(g, 0.2, 0.3, 0.85, m, 0.95, 0.55, 0);
+    for (const [x, z] of [[-0.9, -0.33], [0.9, -0.33], [-0.9, 0.33], [0.9, 0.33]]) bx(g, 0.06, 0.05, 0.06, M.dark(), x, 0.025, z);
     return { g, cols: [col(0, 0.4, 0, 1, 0.4, 0.43)], foot: [1, 0.43] };
   },
   table(w = 1.2, d = 0.8): PropBuild {
@@ -357,20 +374,25 @@ export const P = {
       const s = 0.08 + r() * 0.3;
       bx(g, s * (1 + r()), s * 0.4, s, mats[Math.floor(r() * mats.length)], (r() - 0.5) * spread * 2, s * 0.2, (r() - 0.5) * spread * 2, r() * 3, r() * 0.3, r() * 0.3);
     }
-    return { g, cols: [] };
+    return { g, cols: [], scatter: true };
   },
   papers(seed = 1, n = 10, spread = 1.2): PropBuild {
     const g = new THREE.Group();
     const r = seeded(seed);
     const geo = new THREE.PlaneGeometry(0.21, 0.29);
-    for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(geo, M.paper());
+    const at: [number, number][] = [];
+    for (let tries = 0; at.length < n && tries < n * 20; tries++) {
+      const x = (r() - 0.5) * spread * 2, z = (r() - 0.5) * spread * 2;
+      // sheets never overlap: stacked a millimetre apart they shimmered through each other
+      if (at.some(([ax, az]) => (ax - x) ** 2 + (az - z) ** 2 < 0.36 ** 2)) continue;
+      at.push([x, z]);
+      const m = new THREE.Mesh(geo, flatPaper());
       m.rotation.set(-Math.PI / 2, 0, r() * 6);
-      m.position.set((r() - 0.5) * spread * 2, 0.005 + i * 0.001, (r() - 0.5) * spread * 2);
+      m.position.set(x, 0.003, z);
       m.receiveShadow = true;
       g.add(m);
     }
-    return { g, cols: [] };
+    return { g, cols: [], scatter: true };
   },
   bottle(): PropBuild {
     const g = new THREE.Group();
@@ -390,6 +412,11 @@ export const P = {
       bx(g, 1.1, 0.7, 2.84, win, x, 2.0, 0);
     }
     for (const x of [-len / 2 + 3, len / 2 - 3]) bx(g, 1.3, 2.0, 2.86, stdMat({ color: 0x4a5254, roughness: 0.4, metalness: 0.6 }), x, 1.25, 0);
+    // bogies: wheels on rails 1 m apart, so the body doesn't hover over the track bed
+    for (const bx0 of [-len / 2 + 2.2, len / 2 - 2.2]) {
+      bx(g, 2.2, 0.12, 1.3, M.dark(), bx0, 0.27, 0);
+      for (const wx of [-0.7, 0.7]) for (const wz of [-0.5, 0.5]) cy(g, 0.13, 0.08, M.gunmetal(), bx0 + wx, 0.25, wz, 10, Math.PI / 2);
+    }
     return { g, cols: [col(0, 1.55, 0, len / 2, 1.3, 1.4)], foot: [len / 2, 1.4] };
   },
   bus(burnt = true): PropBuild {
@@ -400,7 +427,8 @@ export const P = {
     for (let z = -4; z <= 4; z += 1.4) {
       bx(g, 2.52, 0.9, 1.1, win, 0, 2.2, z);
     }
-    for (const [x, z] of [[-1.15, -3.5], [1.15, -3.5], [-1.15, 3.2], [1.15, 3.2]]) cy(g, 0.5, 0.3, M.rubber(), x, 0.5, z, 10, 0, Math.PI / 2);
+    // a 10-sided wheel turned this way rests on a flat (0.5 * cos 18deg), not a corner
+    for (const [x, z] of [[-1.15, -3.5], [1.15, -3.5], [-1.15, 3.2], [1.15, 3.2]]) cy(g, 0.5, 0.3, M.rubber(), x, 0.476, z, 10, 0, Math.PI / 2);
     return { g, cols: [col(0, 1.5, 0, 1.25, 1.5, 5)], foot: [1.3, 5] };
   },
   dumpster(): PropBuild {
@@ -408,6 +436,7 @@ export const P = {
     const m = stdMat({ map: TEX.metal(), color: 0x2a4a3a, roughness: 0.6, metalness: 0.4 });
     bx(g, 1.8, 1.1, 1, m, 0, 0.6, 0);
     bx(g, 1.85, 0.08, 1.05, M.dark(), 0, 1.18, -0.05, 0, -0.15);
+    for (const [x, z] of [[-0.75, -0.35], [0.75, -0.35], [-0.75, 0.35], [0.75, 0.35]]) cy(g, 0.025, 0.03, M.rubber(), x, 0.025, z, 6, Math.PI / 2);
     return { g, cols: [col(0, 0.6, 0, 0.9, 0.6, 0.5)], foot: [0.9, 0.5] };
   },
   phoneBooth(): PropBuild {
@@ -427,8 +456,8 @@ export const P = {
     bx(g, 1.3, 1.2, 1.7, stdMat({ color: 0x0a1014, roughness: 0.05, metalness: 0.6 }), 2.1, 1.35, 0);
     bx(g, 4.5, 0.45, 0.45, body, -3.8, 1.8, 0);
     bx(g, 0.8, 1.3, 0.1, body, -5.9, 2.3, 0);
-    for (const z of [-0.85, 0.85]) bx(g, 3.6, 0.07, 0.07, M.dark(), 0.2, 0.25, z);
-    for (const [x, z] of [[-1, -0.85], [1.2, -0.85], [-1, 0.85], [1.2, 0.85]]) bx(g, 0.06, 0.4, 0.06, M.dark(), x, 0.45, z);
+    for (const z of [-0.85, 0.85]) bx(g, 3.6, 0.07, 0.07, M.dark(), 0.2, 0.035, z);
+    for (const [x, z] of [[-1, -0.85], [1.2, -0.85], [-1, 0.85], [1.2, 0.85]]) bx(g, 0.06, 0.5, 0.06, M.dark(), x, 0.3, z);
     const rotor = new THREE.Group();
     rotor.position.set(0, 2.45, 0);
     cy(rotor, 0.12, 0.3, M.dark(), 0, 0, 0, 6);
@@ -465,6 +494,16 @@ export const P = {
     return { g, cols: [], mat };
   },
 };
+
+// name each prop's root after its factory so layout audits and the three.js inspector can tell
+// them apart (outer factories like monitorDesk run after the desk they wrap, so they win)
+for (const [name, make] of Object.entries(P) as [string, (...a: never[]) => PropBuild][]) {
+  (P as Record<string, unknown>)[name] = (...a: never[]) => {
+    const b = make(...a);
+    b.g.name = name;
+    return b;
+  };
+}
 
 let fleshMat: THREE.MeshStandardMaterial | null = null;
 export const fleshUniforms = { uTime: { value: 0 }, uPulse: { value: 1 } };

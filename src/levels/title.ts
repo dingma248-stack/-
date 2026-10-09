@@ -45,9 +45,10 @@ export function buildTitle(L: Level): TitleRun {
     L.light(head, 0xff9a48, 42, 15, flick, { emissive: [lamp.head.material as THREE.Material], emissiveBase: 1 });
   }
   // parked / abandoned cars
-  L.place(P.car(0x4a3a30), V(4.4, 0, 20), 0.05);
-  L.place(P.car(0x2a3438), V(10.5, 0, 33), Math.PI + 0.1);
-  L.place(P.car(0x5a5a52), V(4.6, 0, 47), -0.12);
+  // parked along the curbs: across the road they ran up into the sidewalk and a lamp post
+  L.place(P.car(0x4a3a30), V(5.1, 0, 20), Math.PI / 2 + 0.05);
+  L.place(P.car(0x2a3438), V(9.8, 0, 33), -Math.PI / 2 + 0.1);
+  L.place(P.car(0x5a5a52), V(5.25, 0, 47), Math.PI / 2 - 0.12);
   // burning wreck in the distance
   const wreck = P.car(0x333333, true);
   L.place(wreck, V(8, 0, 62), 0.6);
@@ -65,13 +66,14 @@ export function buildTitle(L: Level): TitleRun {
   // barricade + debris + papers
   L.place(P.barricade(3), V(7.5, 0, 56), 0.2);
   L.place(P.debris(3, 10, 1.5), V(5, 0, 28));
-  L.place(P.papers(4, 14, 3), V(7, 0.01, 15), 0, { collide: false });
+  L.place(P.papers(4, 14, 3), V(7, 0, 15), 0, { collide: false });
   // shop signs (neon) on facades
   const signs: [string, number, number, string, string][] = [
-    ['潮音药房', 1.98, 14, '#0a2a1a', '#7affb0'],
-    ['旅 馆', 12.02, 24, '#2a0a0a', '#ff6a5a'],
-    ['24h 便利', 1.98, 38, '#0a1a2a', '#8ad0ff'],
-    ['典当', 12.02, 52, '#2a1a0a', '#ffc070'],
+    // just in front of the facades (x 2 and x 13): two sat inside a wall, two hung a metre out from one
+    ['潮音药房', 2.02, 14, '#0a2a1a', '#7affb0'],
+    ['旅 馆', 12.98, 24, '#2a0a0a', '#ff6a5a'],
+    ['24h 便利', 2.02, 38, '#0a1a2a', '#8ad0ff'],
+    ['典当', 12.98, 52, '#2a1a0a', '#ffc070'],
   ];
   for (const [txt, x, z, bg, fg] of signs) {
     const s = P.sign(txt, 2.2, 0.6, bg, fg, 1.2);
@@ -81,10 +83,13 @@ export function buildTitle(L: Level): TitleRun {
   }
   // puddles (glossy planes)
   const puddle = stdMat({ map: TEX.water(), color: 0x0a0c10, roughness: 0.02, metalness: 0.6, transparent: true, opacity: 0.85 });
+  puddle.polygonOffset = true;
+  puddle.polygonOffsetFactor = -2;
+  puddle.polygonOffsetUnits = -2;
   for (let i = 0; i < 14; i++) {
     const m = new THREE.Mesh(new THREE.CircleGeometry(0.6 + Math.random() * 1.2, 10), puddle);
     m.rotation.x = -Math.PI / 2;
-    m.position.set(4.5 + Math.random() * 6, 0.012, 4 + i * 5 + Math.random() * 3);
+    m.position.set(4.5 + Math.random() * 6, 0.004, 4 + i * 5 + Math.random() * 3);
     m.scale.set(1, 0.5 + Math.random() * 0.8, 1);
     m.receiveShadow = true;
     L.group.add(m);

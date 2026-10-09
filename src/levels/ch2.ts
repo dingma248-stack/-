@@ -97,17 +97,18 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   // ---------------- lobby ----------------
   const counter = P.counter(5);
   L.place(counter, V(23.5, 0, 27.6), 0);
-  L.place(P.monitorDesk(1), V(22, 0, 26.8), Math.PI, { keep: true, collide: false });
+  L.place(P.monitorDesk(1), V(21.85, 0, 26.8), Math.PI, { keep: true, collide: false });
   for (const x of [19, 28]) L.place(P.bench(), V(x, 0, 33.5), Math.PI / 2);
   L.place(P.sign('雾港市公安局 西港分局', 4.4, 0.55, '#1a1408', '#d8c890', 0.35), V(23.5, 3.2, 26.03), 0, { collide: false, keep: true });
   L.place(P.sign('为人民服务', 2.4, 0.5, '#5a0a0a', '#f0d890', 0.3), V(23.5, 3.6, 35.97), Math.PI, { collide: false, keep: true });
   // front entrance (barricaded)
   for (const x of [21.5, 25.5]) L.place(P.barricade(3), V(x, 0, 35.2), 0);
-  L.place(P.cabinet(1.3), V(20.5, 0, 35.5), Math.PI);
-  L.place(P.desk(1.6, 0.8), V(26.5, 0, 35.4), 0.1);
-  const lobbyLamps = [L.tube(20, 29, { intensity: 9, distance: 10, kind: 'buzz', y: 4.1 }), L.tube(27, 29, { intensity: 9, distance: 10, kind: 'flicker', y: 4.1 }), L.tube(23.5, 33, { intensity: 9, distance: 10, kind: 'buzz', y: 4.1 })];
-  L.place(P.papers(41, 18, 2.5), V(23.5, 0.01, 31), 0, { collide: false });
-  L.decal('blood', V(18.2, 0.01, 31), V(0, 1, 0), 1.6);
+  // pushed up behind the barricades, not through them
+  L.place(P.cabinet(1.3), V(20.5, 0, 35.68), Math.PI);
+  L.place(P.desk(1.6, 0.8), V(26.5, 0, 34.45), 0.1);
+  const lobbyLamps = [L.tube(20, 29, { intensity: 9, distance: 10, kind: 'buzz' }), L.tube(27, 29, { intensity: 9, distance: 10, kind: 'flicker' }), L.tube(23.5, 33, { intensity: 9, distance: 10, kind: 'buzz' })];
+  L.place(P.papers(41, 18, 2.5), V(23.5, 0, 31), 0, { collide: false });
+  L.decal('blood', V(18.2, 0, 31), V(0, 1, 0), 1.6);
   L.decal('hand', V(17.02, 1.4, 33), V(1, 0, 0), 0.5);
   L.decal('hand', V(17.02, 1.1, 33.6), V(1, 0, 0), 0.45);
   L.ambient('hum', V(23.5, 4, 30), 0.12, 3);
@@ -115,7 +116,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   // ---------------- duty room (safe room) ----------------
   L.place(P.desk(1.6, 0.8), V(25.4, 0, 20.8), Math.PI);
   L.place(P.chair(), V(25.2, 0, 21.8), 0.3, { dynamic: { mass: 8, surface: 'metal' } });
-  L.place(P.sofa(), V(22.4, 0, 21), Math.PI / 2 + Math.PI);
+  L.place(P.sofa(), V(22.4, 0, 21.1), Math.PI / 2 + Math.PI);
   L.place(P.locker(2), V(21.6, 0, 23.6), Math.PI / 2);
   savePoint(L, V(25.6, 0, 23.4), -Math.PI / 2, 'duty');
   L.tube(23.5, 22, { kind: 'buzz', intensity: 5, color: 0xffe6b0 });
@@ -132,7 +133,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.chair(), V(12, 0, 24.6), -2.6, { dynamic: { mass: 8, surface: 'metal' } });
   L.tube(5.5, 24.5, { kind: 'dying', intensity: 5 });
   L.tube(12.5, 24.5, { kind: 'flicker', intensity: 5 });
-  L.place(P.papers(51, 12, 1.5), V(12, 0.01, 25), 0, { collide: false });
+  L.place(P.papers(51, 12, 1.5), V(12, 0, 25), 0, { collide: false });
   loot(L, 'ammo9', 8, V(14, 0.8, 26), 'ch2:ammo1');
   // chief's office
   L.place(P.desk(1.8, 0.9), V(6, 0, 35.8), 0);
@@ -166,7 +167,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.tube(13, 34, { kind: 'buzz', intensity: 5 });
   L.pickup({ type: 'pouch' }, V(11.6, 0.05, 33), 'ch2:pouch');
   loot(L, 'medkit', 1, V(14.6, 0.05, 32.6), 'ch2:medkit');
-  loot(L, 'battery', 1, V(12, 0.5, 37.3), 'ch2:bat');
+  loot(L, 'battery', 1, V(13.4, 0.5, 34.45), 'ch2:bat');
 
   // ---------------- east wing ----------------
   L.tube(36, 29.5, { kind: 'buzz' });
@@ -176,8 +177,8 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   for (const z of [21, 23, 25, 27]) L.place(P.cabinet(1.6), V(33.4, 0, z), Math.PI / 2);
   L.tube(36, 24, { kind: 'dying', intensity: 5 });
   L.tube(42, 26, { kind: 'flicker', intensity: 4 });
-  L.place(P.papers(71, 20, 2), V(38, 0.01, 26.5), 0, { collide: false });
-  loot(L, 'shells', 4, V(43.5, 1.45, 21.5), 'ch2:shells1');
+  L.place(P.papers(71, 20, 2), V(38, 0, 26.5), 0, { collide: false });
+  loot(L, 'shells', 4, V(41.2, 1.3, 21.5), 'ch2:shells1');
   // holding cells: bars + prisoners
   const bars = (x0: number, z: number, len: number) => {
     const g = new THREE.Group();
@@ -200,9 +201,10 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   const keypad = new THREE.Group();
   bx(keypad, 0.16, 0.24, 0.04, M.dark(), 0, 0, 0);
   bx(keypad, 0.12, 0.05, 0.01, stdMat({ color: 0x0a120c, emissive: 0x40ff80, emissiveIntensity: 0.6 }), 0, 0.07, 0.025);
-  L.place({ g: keypad, cols: [] }, V(42.5, 1.3, 30.02), Math.PI, { collide: false, keep: true });
-  const kpLight = L.light(V(42.5, 1.4, 29.6), 0x40ff80, 1.2, 2, 'pulse');
-  const pad = L.interact(V(42.5, 1.3, 30.2), () => (armDoor.locked ? '[E] 输入门禁密码' : null), () => {
+  // on the corridor's south wall (it hung a metre out from it)
+  L.place({ g: keypad, cols: [] }, V(42.5, 1.3, 30.98), Math.PI, { collide: false, keep: true });
+  const kpLight = L.light(V(42.5, 1.4, 30.6), 0x40ff80, 1.2, 2, 'pulse');
+  const pad = L.interact(V(42.5, 1.3, 30.75), () => (armDoor.locked ? '[E] 输入门禁密码' : null), () => {
     ctx.ui.keypad('装备室 · 门禁', '0417', () => {
       armDoor.unlock();
       armDoor.open(ctx.player.pos);
@@ -227,7 +229,7 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
   L.light(V(14.2, 1.2, 17.5), 0xffc0c0, 2, 3, 'buzz', { emissive: [vend.screen.material as THREE.Material] });
   const wall = breakableWall(L, 23, 19, 24, 19, 'plasterYellow', 2.8);
   const stairDoor = L.doorsAt('S', { kind: 'metal', locked: 'garageKey', msg: '通往地下停车场的门 · 上锁' })[0];
-  L.place(P.sign('B1 停车场 ↓', 1.2, 0.3, '#1a3b26', '#d8e8d0', 0.8), V(44.98, 2.4, 18.5), -Math.PI / 2, { collide: false, keep: true });
+  L.place(P.sign('B1 停车场 ↓', 1.2, 0.3, '#1a3b26', '#d8e8d0', 0.8), V(45, 2.45, 17.02), 0, { collide: false, keep: true });
   L.light(V(44.5, 1.5, 11), 0x40ff60, 3, 5, 'steady');
   L.light(V(44.5, -1.5, 7), 0xff3020, 3, 6, 'pulse');
   // garage
@@ -235,14 +237,16 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     L.place({ g: pillar(), cols: [{ c: V(0, 1.4, 0), h: V(0.3, 1.4, 0.3) }], foot: [0.3, 0.3] }, V(x, -3, 3), 0);
   }
   const carCols = [0x2a2a2a, 0x4a3a30, 0x2a3a4a, 0x5a5a52, 0x1b1e24];
-  for (let i = 0; i < 6; i++) L.place(P.car(carCols[i % carCols.length]), V(9 + i * 6, -3, i % 2 ? 1.6 : 4.6), Math.PI / 2 + (i % 2 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.1);
+  // parked along the walls: nosed in, a 4.2 m car doesn't fit the 5 m deep garage
+  for (let i = 0; i < 6; i++) L.place(P.car(carCols[i % carCols.length]), V(9 + i * 6, -3, i % 2 ? 2.06 : 4.94), (i % 2 ? 0 : Math.PI) + ((i % 3) - 1) * 0.03);
   const escape = P.policeCar();
-  L.place(escape, V(4, -3, 3), Math.PI / 2, { keep: true });
-  L.light(V(4, -1.2, 3), 0xff2020, 10, 9, 'beacon');
-  L.light(V(4.5, -1.2, 3), 0x2050ff, 10, 9, 'beacon', { phase: 0.5 });
+  // against the end wall: a car's length from the side walls, it left a sealed-off strip behind it
+  L.place(escape, V(3.05, -3, 3.5), Math.PI / 2, { keep: true });
+  L.light(V(3.05, -1.2, 3.2), 0xff2020, 10, 9, 'beacon');
+  L.light(V(3.55, -1.2, 3.2), 0x2050ff, 10, 9, 'beacon', { phase: 0.5 });
   for (let x = 10; x < 46; x += 9) L.tube(x, 3, { kind: x % 2 ? 'dying' : 'flicker', y: -0.15, intensity: 5 });
   enemy('infected', V(20, -3, 3), { id: 'ch2:g1', state: 'wander' });
-  enemy('infected', V(30, -3, 2.5), { id: 'ch2:g2', state: 'idle', yaw: 1.4 });
+  enemy('infected', V(31.3, -3, 2.4), { id: 'ch2:g2', state: 'idle', yaw: 1.4 });
   enemy('infected', V(14, -3, 4.5), { id: 'ch2:g3', state: 'dormant', wakeDist: 2.6 });
 
   // ---------------- other enemies ----------------
@@ -384,15 +388,15 @@ export function buildCh2(cp: string, o: BuildOpts): ChapterRun {
     void (async () => {
       await ctx.story.cutscene(async () => {
         const s = ctx.story;
-        await s.camTo(V(6.5, -1.4, 5), V(4, -2, 3), 0.6);
-        ctx.audio.play('metalDoor', { pos: V(4, -2, 3), vol: 0.7 });
+        await s.camTo(V(6.5, -1.4, 5), V(3.05, -2, 3.5), 0.6);
+        ctx.audio.play('metalDoor', { pos: V(3.05, -2, 3.5), vol: 0.7 });
         await wait(0.6);
         ctx.audio.play('distantBoom', { vol: 0.8 });
         if (nw && !nw.dead) {
-          nw.warp(V(16, -3, 3), -Math.PI / 2);
+          nw.warp(V(16, -3, 3.6), -Math.PI / 2);
           nw.setState('scripted');
-          await s.camTo(V(6, -1.6, 4.4), V(16, -1.5, 3), 0.8);
-          ctx.audio.play('bossRoar', { pos: V(16, -1, 3), vol: 1 });
+          await s.camTo(V(6.2, -1.6, 3.6), V(16, -1.5, 3.6), 0.8);
+          ctx.audio.play('bossRoar', { pos: V(16, -1, 3.6), vol: 1 });
           await wait(1.1);
         }
         ctx.renderer.fx.fade = 0;

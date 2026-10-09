@@ -94,15 +94,16 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
   L.light(V(20, 1.4, 11), 0x9ad0b0, 4, 7, 'flicker');
   L.ambient('water', V(10, -1.2, 20), 0.6, 4);
   L.ambient('water', V(24, -1.2, 20), 0.5, 4);
-  L.place(P.pipe(28, 0.25, M.rust()), V(15, 1.6, 15.7), 0, { collide: false });
-  L.place(P.pipe(28, 0.15, M.rust()), V(15, 2, 24.3), 0, { collide: false });
+  // along the wall faces (they ran inside the walls, out of sight)
+  L.place(P.pipe(29, 0.25, M.rust()), V(15.5, 1.6, 16.33), 0, { collide: false });
+  L.place(P.pipe(28, 0.15, M.rust()), V(15, 2, 23.8), 0, { collide: false });
   L.place(P.barrel(), V(9.5, -1, 25), 0, { dynamic: { mass: 40, surface: 'metal' } });
   L.place(P.crate(0.8), V(13, -1, 28.5), 0.4, { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood', onBreak: () => loot(L, 'shells', 4, V(13, -0.95, 28.5)) } } });
   L.place(P.crate(0.8), V(21, -1, 10), 0.1, { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood', onBreak: () => loot(L, 'ammo9', 8, V(21, -0.95, 10)) } } });
   // dead Helix guard with the L1 keycard
   corpse(L, V(11.5, -1, 27.5), 2.2, 0x2a2e36);
   L.pickup({ type: 'key', key: { id: 'helixL1', name: '赫利生物 L1 门禁卡', desc: '卡面印着「HELIX · 维护通道」。主人已经用不上了。' }, color: 0xd0d0d0 }, V(12.1, -0.95, 27), 'ch4:l1');
-  loot(L, 'ammo357', 3, V(10.6, -0.95, 28.2), 'ch4:mag1');
+  loot(L, 'ammo357', 3, V(10.35, -0.95, 28.65), 'ch4:mag1');
   L.pickup(
     {
       type: 'doc',
@@ -149,8 +150,8 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
     tanks.push({ g: t.g, liquid: t.liquidMat });
     if (!intact) {
       t.liquidMat.opacity = 0.05;
-      L.decal('blood', V(x, 0.01, z + 1), V(0, 1, 0), 2);
-      L.place(P.debris(Math.floor(x * 7), 8, 1), V(x, 0, z + 1.5), 0, { collide: false });
+      L.decal('blood', V(x, 0, z + 1), V(0, 1, 0), 2);
+      L.place(P.debris(Math.floor(x * 7), 8, 1), V(x, 0, z + 1.9), 0, { collide: false });
     }
     L.light(V(x, 1.2, z), 0x30ff9a, 3, 4, 'pulse', { speed: 0.3 });
   }
@@ -315,7 +316,7 @@ export function buildCh4(cp: string, o: BuildOpts): ChapterRun {
   // elevator
   L.door(49, 32, { kind: 'slide', locked: 'power', msg: '货运电梯 · 电力中断' });
   tube(52, 32, 6);
-  L.place(P.sign('B5 · 核心区 ↓', 1.4, 0.3, '#3a0a0a', '#ffd0c0', 0.8), V(49.02, 2.2, 30.5), Math.PI / 2, { collide: false, keep: true });
+  L.place(P.sign('B5 · 核心区 ↓', 1.4, 0.3, '#3a0a0a', '#ffd0c0', 0.8), V(48.98, 2.2, 30.5), -Math.PI / 2, { collide: false, keep: true });
 
   // ---------------- story ----------------
   const lin = new NPC(cp === 'start' ? V(3, -1, 22.6) : V(43, 0, 22), -Math.PI / 2, 'lin');

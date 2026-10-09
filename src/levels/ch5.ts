@@ -120,7 +120,7 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
   tank(28.8, 27.6, 'ch5:t3');
   tank(37.4, 27.4, 'ch5:t4');
   tank(33, 19.2, 'ch5:t5');
-  for (const [x, z] of [[22, 31], [44.2, 18], [22, 16]] as [number, number][]) L.place(P.crate(0.9), V(x, 0, z), rand(0, 1));
+  for (const [x, z] of [[22, 31], [44.2, 18], [22, 17]] as [number, number][]) L.place(P.crate(0.9), V(x, 0, z), rand(0, 1));
   loot(L, 'grenade', 2, V(44, 0.05, 31.5), 'ch5:gr2');
   loot(L, 'shells', 6, V(22.4, 0.05, 32.2), 'ch5:sh2');
   loot(L, 'ammo357', 4, V(44.3, 0.05, 16.8), 'ch5:mag2');
@@ -128,21 +128,29 @@ export function buildCh5(cp: string, o: BuildOpts): ChapterRun {
   L.light(V(33, 8, 24), 0xffa070, 10, 16, 'flicker');
   L.ambient('drone', V(33, 4, 24), 0.4, 10);
   const exitDoor = L.door(32, 11, { kind: 'slide', width: 3, locked: 'core', msg: '紧急出口 · 核心封锁中' });
-  L.place(P.sign('紧急出口 · 天台', 2, 0.35, '#1a3b26', '#d8e8d0', 1), V(33.5, 3, 11.98), Math.PI, { collide: false, keep: true });
+  L.place(P.sign('紧急出口 · 天台', 2, 0.35, '#1a3b26', '#d8e8d0', 1), V(33.5, 3, 12.02), 0, { collide: false, keep: true });
   L.tube(33, 7, { kind: 'buzz', color: 0xe8f4ff, intensity: 6 });
   L.tube(33, 2, { kind: 'flicker', color: 0xe8f4ff, intensity: 6 });
 
   // ---------------- rooftop ----------------
   const heli = P.helicopter();
-  L.place(heli, V(53, 0, 34), Math.PI / 2 + 0.3, { keep: true });
+  L.place(heli, V(53, 0.005, 34), Math.PI / 2 + 0.3, { keep: true });
+  // pad and marking lie flat on the roof: depth offsets keep them from flickering through it and each other
   const padMat = stdMat({ color: 0x3a3a3a, roughness: 0.4 });
+  padMat.polygonOffset = true;
+  padMat.polygonOffsetFactor = -2;
+  padMat.polygonOffsetUnits = -2;
   const pad = new THREE.Mesh(new THREE.CircleGeometry(4.5, 24), padMat);
   pad.rotation.x = -Math.PI / 2;
-  pad.position.set(53, 0.01, 34);
+  pad.position.set(53, 0.003, 34);
   L.group.add(pad);
   const hMark = P.sign('H', 2.2, 2.2, '#3a3a3a', '#d8c040', 0.4);
+  const hMat = (hMark.g.children[0] as THREE.Mesh).material as THREE.Material;
+  hMat.polygonOffset = true;
+  hMat.polygonOffsetFactor = -4;
+  hMat.polygonOffsetUnits = -4;
   hMark.g.rotation.x = -Math.PI / 2;
-  L.place(hMark, V(53, 0.02, 34), 0, { collide: false, keep: true });
+  L.place(hMark, V(53, 0.005, 34), 0, { collide: false, keep: true });
   hMark.g.rotation.set(-Math.PI / 2, 0, 0);
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;

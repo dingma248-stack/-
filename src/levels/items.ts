@@ -1,8 +1,17 @@
 import * as THREE from 'three';
 import { M, stdMat } from '../render/materials';
-import { bx, cy } from './props';
+import { bx, cy, flatPaper } from './props';
+import { TEX } from '../render/textures';
 import type { ItemId } from '../player/inventory';
 import type { WeaponId } from '../config';
+
+/** Thin parts lying on a surface or on another part: pulled forward in depth, or vertex snapping makes them flicker. */
+function flat<T extends THREE.Material>(m: T, k = 1): T {
+  m.polygonOffset = true;
+  m.polygonOffsetFactor = -1 - k;
+  m.polygonOffsetUnits = -2 * k;
+  return m;
+}
 
 /** Small world models for pickups. */
 export function itemModel(kind: ItemId | 'key' | 'doc' | 'tape' | WeaponId | 'pouch' | 'vaccine', color = 0xc8b030): THREE.Group {
@@ -10,7 +19,7 @@ export function itemModel(kind: ItemId | 'key' | 'doc' | 'tape' | WeaponId | 'po
   switch (kind) {
     case 'ammo9':
       bx(g, 0.16, 0.08, 0.1, stdMat({ color: 0x2f3a24, roughness: 0.8 }), 0, 0.04, 0);
-      bx(g, 0.1, 0.05, 0.002, stdMat({ color: 0xc0b080, roughness: 0.8 }), 0, 0.045, 0.051);
+      bx(g, 0.1, 0.05, 0.002, flat(stdMat({ color: 0xc0b080, roughness: 0.8 })), 0, 0.045, 0.051);
       break;
     case 'shells':
       bx(g, 0.18, 0.08, 0.1, stdMat({ color: 0x6a1a12, roughness: 0.7 }), 0, 0.04, 0);
@@ -29,27 +38,29 @@ export function itemModel(kind: ItemId | 'key' | 'doc' | 'tape' | WeaponId | 'po
     case 'bandage':
       cy(g, 0.05, 0.08, M.white(), 0, 0.04, 0, 10, Math.PI / 2);
       break;
-    case 'medkit':
+    case 'medkit': {
       bx(g, 0.28, 0.1, 0.2, stdMat({ color: 0xd8d4c8, roughness: 0.6 }), 0, 0.05, 0);
-      bx(g, 0.1, 0.002, 0.03, M.red(), 0, 0.101, 0);
-      bx(g, 0.03, 0.002, 0.1, M.red(), 0, 0.101, 0);
+      const cross = flat(stdMat({ color: 0x7a1414, roughness: 0.6 }));
+      bx(g, 0.1, 0.002, 0.03, cross, 0, 0.101, 0);
+      bx(g, 0.03, 0.002, 0.1, cross, 0, 0.101, 0);
       break;
+    }
     case 'battery':
       cy(g, 0.02, 0.09, stdMat({ color: 0x1a1a1a, roughness: 0.4 }), 0, 0.02, 0, 8, 0, Math.PI / 2);
       cy(g, 0.021, 0.03, stdMat({ color: 0xc89020, roughness: 0.4, metalness: 0.4 }), 0.04, 0.02, 0, 8, 0, Math.PI / 2);
       cy(g, 0.02, 0.09, stdMat({ color: 0x1a1a1a, roughness: 0.4 }), 0, 0.02, 0.045, 8, 0, Math.PI / 2);
       break;
     case 'key':
-      bx(g, 0.09, 0.004, 0.055, stdMat({ color, roughness: 0.4, emissive: color, emissiveIntensity: 0.15 }), 0, 0.003, 0);
-      bx(g, 0.03, 0.005, 0.02, stdMat({ color: 0xc8b060, metalness: 0.8, roughness: 0.3 }), -0.02, 0.005, 0);
+      bx(g, 0.09, 0.004, 0.055, flat(stdMat({ color, roughness: 0.4, emissive: color, emissiveIntensity: 0.15 })), 0, 0.002, 0);
+      bx(g, 0.03, 0.002, 0.02, flat(stdMat({ color: 0xc8b060, metalness: 0.8, roughness: 0.3 }), 2), -0.02, 0.005, 0);
       break;
     case 'doc':
-      bx(g, 0.21, 0.004, 0.29, M.paper(), 0, 0.002, 0, 0.3);
-      bx(g, 0.21, 0.004, 0.29, M.paper(), 0.02, 0.006, 0.01, 0.1);
+      bx(g, 0.21, 0.003, 0.29, flatPaper(), 0, 0.0015, 0, 0.3);
+      bx(g, 0.21, 0.003, 0.29, flat(stdMat({ map: TEX.paper(), roughness: 1 }), 3), 0.02, 0.0045, 0.01, 0.1);
       break;
     case 'tape':
       bx(g, 0.1, 0.015, 0.064, stdMat({ color: 0x1a1a1a, roughness: 0.4 }), 0, 0.008, 0);
-      bx(g, 0.06, 0.002, 0.03, stdMat({ color: 0xd8c8a0 }), 0, 0.016, 0);
+      bx(g, 0.06, 0.002, 0.03, flat(stdMat({ color: 0xd8c8a0 })), 0, 0.016, 0);
       break;
     case 'pouch':
       bx(g, 0.3, 0.16, 0.12, stdMat({ color: 0x3a3a2a, roughness: 1 }), 0, 0.08, 0);

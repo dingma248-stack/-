@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Level } from './level';
 import { P, bx } from './props';
 import { ctx } from '../core/ctx';
-import { V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, bloodTrail, type BuildOpts, type ChapterRun } from './kit';
+import { V, enemy, loot, say, wait, until, objective, radio, flag, setFlag, bloodTrail, corpse, type BuildOpts, type ChapterRun } from './kit';
 import { Feed } from './feed';
 import { M, stdMat } from '../render/materials';
 import { TEX } from '../render/textures';
@@ -66,10 +66,10 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   L.place(P.locker(2), V(6.4, 0, 4.2), -Math.PI / 2);
   L.place(P.cabinet(), V(1.35, 0, 5.6), Math.PI / 2);
   L.place(P.table(1, 0.6), V(1.6, 0, 3.6), Math.PI / 2);
-  L.place(P.papers(2, 6, 0.6), V(4.5, 0.01, 4.2), 0, { collide: false });
+  L.place(P.papers(2, 6, 0.6), V(4.5, 0, 4.2), 0, { collide: false });
   const mug = new THREE.Group();
   bx(mug, 0.08, 0.1, 0.08, M.white(), 0, 0.05, 0);
-  L.place({ g: mug, cols: [] }, V(4.6, 0.79, 1.5), 0, { collide: false });
+  L.place({ g: mug, cols: [] }, V(4.52, 0.785, 1.92), 0, { collide: false });
   const officeLight = L.tube(3.5, 3.5, { kind: 'buzz', intensity: 6, distance: 8 });
   const monitorGlow = L.light(V(3.5, 1.2, 2.2), 0x80d0a0, 2.5, 3.5, 'buzz');
   // calendar / poster
@@ -85,19 +85,28 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   ];
   L.place(P.cart(), V(7, 0, 9.2), 0.3, { dynamic: { mass: 25, surface: 'metal' } });
   L.place(P.bin(), V(16.5, 0, 8.4), 0, { dynamic: { mass: 10, surface: 'metal' } });
-  const wet = P.sign('小心地滑', 0.4, 0.5, '#c8a020', '#1a1a1a', 0.05);
-  L.place(wet, V(12, 0.3, 8.3), 0.6, { collide: false, keep: true });
+  // wet-floor sign: two boards leaning into an A-frame (it was a lone plane hovering over the floor)
+  const wet = new THREE.Group();
+  for (const side of [0, Math.PI]) {
+    const board = P.sign('小心地滑', 0.4, 0.5, '#c8a020', '#1a1a1a', 0.05).g;
+    board.children[0].rotation.x = -0.28;
+    board.children[0].position.set(0, 0.24, 0.07);
+    board.rotation.y = side;
+    wet.add(board);
+  }
+  L.place({ g: wet, cols: [] }, V(12, 0, 8.3), 0.6, { collide: false, keep: true });
   bloodTrail(L, V(12, 0, 9.3), V(20.5, 0, 8.8));
-  L.decal('hand', V(20.98, 1.3, 9.4), V(-1, 0, 0), 0.5);
-  L.decal('blood', V(11.5, 0.01, 9.2), V(0, 1, 0), 1.6);
+  // on the wall beside the dock door (it used to hang in the doorway, in front of the leaf)
+  L.decal('hand', V(20.4, 1.3, 9.98), V(0, 0, -1), 0.5);
+  L.decal('blood', V(11.5, 0, 9.2), V(0, 1, 0), 1.6);
   L.ambient('hum', V(10, 2.5, 8.5), 0.15, 2);
 
   // ---------------- storage ----------------
-  L.place(P.shelf(2.2, 2.2, 0.5, 4), V(9, 0, 11.4), 0);
+  L.place(P.shelf(2.2, 2.2, 0.5, 4), V(9, 0, 11.8), 0);
   L.place(P.shelf(1.8, 2.2, 0.5, 9), V(13.1, 0, 12.6), -Math.PI / 2);
-  for (const [x, z] of [[6, 12.2], [6.2, 13.3], [7.1, 13.4]] as [number, number][]) L.place(P.crate(0.7), V(x, 0, z), Math.random(), { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood' } } });
+  for (const [x, z] of [[6, 12.2], [6.2, 13.3], [7.3, 13.35]] as [number, number][]) L.place(P.crate(0.7), V(x, 0, z), Math.random(), { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood' } } });
   L.tube(9, 12.5, { kind: 'flicker', intensity: 4 });
-  loot(L, 'bandage', 1, V(9.3, 1.2, 11.4), 'pro:bandage');
+  loot(L, 'bandage', 1, V(9.3, 1.2, 11.8), 'pro:bandage');
   loot(L, 'battery', 1, V(11.6, 0.02, 13.5), 'pro:battery');
   L.pickup(
     {
@@ -108,7 +117,7 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
         body: '10月9日 夜班交接\n\n1. 卸货区卷帘门遥控失灵，需手动拉起。\n2. 21:50 老马说去卸货区抽根烟。\n3. 广播通知：市区多处出现「狂犬病样」伤人事件，\n   商场提前闭店，请值班人员锁好各出入口。\n4. 监控 CAM 03 画面偶尔雪花，已报修。\n\n——小郑\n\n（字迹潦草的补充）\n老马被咬了一口，说没事。他一直在出汗。',
       },
     },
-    V(10.5, 0.82, 11.6),
+    V(9.85, 0.62, 11.8),
     'pro:doc1',
   );
 
@@ -136,18 +145,11 @@ export function buildPrologue(cp: string, o: BuildOpts): ChapterRun {
   bx(lamp, 0.18, 0.02, 0.18, M.glow(0xfff0c0), 0.13, 0.13, 0, 0, 0, 1.4);
   L.place({ g: lamp, cols: [] }, V(27.6, 0, 3.4), 2.2, { collide: false, keep: true });
   L.light(V(27.2, 0.5, 3.6), 0xffe0a8, 9, 7, 'flicker', { speed: 0.6 });
-  const victim = V(25.4, 0, 4.4);
-  // victim body: a fallen guard (static ragdoll-like pose)
-  const corpse = new THREE.Group();
-  const uni = stdMat({ map: TEX.cloth(), color: 0x2a3040, roughness: 1 });
-  bx(corpse, 0.4, 0.2, 0.7, uni, 0, 0.1, 0);
-  bx(corpse, 0.2, 0.18, 0.22, M.skin(), 0, 0.09, 0.48, 0.3);
-  bx(corpse, 0.14, 0.14, 0.8, stdMat({ map: TEX.cloth(), color: 0x1e2228, roughness: 1 }), -0.1, 0.07, -0.72, 0.1);
-  bx(corpse, 0.14, 0.14, 0.8, stdMat({ map: TEX.cloth(), color: 0x1e2228, roughness: 1 }), 0.12, 0.07, -0.74, -0.15);
-  bx(corpse, 0.1, 0.1, 0.55, uni, 0.32, 0.06, 0.2, -0.9);
-  L.place({ g: corpse, cols: [] }, victim, 0.9, { collide: false });
-  L.decal('blood', victim.clone().setY(0.01), V(0, 1, 0), 2.4);
-  L.decal('blood', V(26.2, 0.01, 5.2), V(0, 1, 0), 1.3);
+  // victim: a fallen guard, clear of the crate stack
+  const victim = V(25.6, 0, 4.55);
+  corpse(L, victim, 0.9, 0x2a3040, false);
+  L.decal('blood', victim, V(0, 1, 0), 2.4);
+  L.decal('blood', V(26.2, 0, 5.2), V(0, 1, 0), 1.3);
 
   // ---------------- doors ----------------
   L.door(2, 7, { kind: 'wood' });

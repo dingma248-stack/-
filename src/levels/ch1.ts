@@ -73,7 +73,7 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   // ---------------- street lighting ----------------
   const lamp = (x: number, z: number, north: boolean, kind: 'steady' | 'flicker' | 'dying' = 'steady') => {
     const l = P.streetLamp(5.4);
-    L.place(l, V(x, 0.12, z), north ? 0 : Math.PI, { collide: true, keep: true });
+    L.place(l, V(x, 0, z), north ? 0 : Math.PI, { collide: true, keep: true });
     const head = V(x, 5.2, z + (north ? 1.05 : -1.05));
     L.light(head, 0xff9a48, 40, 15, kind, { emissive: [l.head.material as THREE.Material] });
   };
@@ -89,7 +89,7 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   lamp(51.2, 6.5, true, 'flicker');
 
   // ---------------- alley ----------------
-  L.place(P.dumpster(), V(7.2, 0, 34), Math.PI / 2);
+  L.place(P.dumpster(), V(6.45, 0, 34), Math.PI / 2);
   L.place(P.bin(), V(4.3, 0, 36.5), 0, { dynamic: { mass: 10, surface: 'metal' } });
   L.place(P.crate(0.8), V(2.8, 0, 41.3), 0.3, { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood' } } });
   L.place(P.debris(11, 8, 1), V(5, 0, 38));
@@ -117,34 +117,37 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
     V(11.4, 0.05, 25.6),
     'ch1:doc1',
   );
-  L.decal('blood', V(9, 0.01, 26), V(0, 1, 0), 2.2);
+  L.decal('blood', V(9, 0, 26), V(0, 1, 0), 2.2);
 
   // ---------------- street dressing ----------------
-  L.place(P.car(0x3a4a52), V(17, 0, 27.2), Math.PI / 2 - 0.08);
+  // parked along the curbs: nosed in, they sank into the raised sidewalk
+  L.place(P.car(0x3a4a52), V(17, 0, 26.8), 0.08);
   const wreck = P.car(0x333333, true);
   L.place(wreck, V(25, 0, 22.4), 2.3);
   const fire1 = V(25, 1, 22.4);
   L.light(fire1.clone().setY(1.6), 0xff6a20, 40, 16, 'fire');
   L.ambient('fire', fire1, 0.7, 3);
-  L.decal('scorch', V(25, 0.01, 22.4), V(0, 1, 0), 5);
-  L.place(P.car(0x6a5a40), V(38, 0, 21), Math.PI / 2 + 0.2);
-  L.place(P.car(0x2a2a2a), V(47, 0, 26.5), -Math.PI / 2 + 0.15);
+  L.decal('scorch', V(25, 0, 22.4), V(0, 1, 0), 5);
+  L.place(P.car(0x6a5a40), V(38, 0, 21.4), Math.PI + 0.2);
+  L.place(P.car(0x2a2a2a), V(47, 0, 26.6), Math.PI + 0.15);
   L.place(P.bench(), V(13.5, 0.12, 18.6), 0);
   L.place(P.phoneBooth(), V(21, 0.12, 18.7), 0);
-  L.place(P.barricade(3), V(56, 0, 22), Math.PI / 2);
-  L.place(P.barricade(3), V(56, 0, 25.5), Math.PI / 2);
-  L.place(P.policeCar(), V(55, 0, 24), 0.1);
-  L.light(V(55, 2, 24), 0x2050ff, 18, 12, 'beacon', { phase: 0.2 });
+  // roadblock: barricades behind the police car, not through it
+  L.place(P.barricade(3), V(57.2, 0, 22), Math.PI / 2);
+  L.place(P.barricade(3), V(57.2, 0, 25.5), Math.PI / 2);
+  L.place(P.policeCar(), V(54.6, 0, 24), Math.PI / 2 + 0.1);
+  L.light(V(54.6, 2, 24), 0x2050ff, 18, 12, 'beacon', { phase: 0.2 });
   L.place(P.debris(21, 12, 2), V(30, 0, 25));
-  L.place(P.papers(22, 16, 3), V(19, 0.01, 23), 0, { collide: false });
+  L.place(P.papers(22, 16, 3), V(19, 0, 23), 0, { collide: false });
   for (let i = 0; i < 6; i++) L.place(P.bottle(), V(rand(14, 40), 0.12, 28.4 + rand(0, 1)), 0, { dynamic: { mass: 0.5, surface: 'glass', breakable: { hp: 1, kind: 'bottle' } } });
-  for (const [x, z, s] of [[12, 22, 1.5], [33, 25, 2], [44, 21, 1.2]] as [number, number, number][]) L.decal('blood', V(x, 0.01, z), V(0, 1, 0), s);
+  for (const [x, z, s] of [[12, 22, 1.5], [33, 25, 2], [44, 21, 1.2]] as [number, number, number][]) L.decal('blood', V(x, 0, z), V(0, 1, 0), s);
   // neon shop signs on facades
   const neon: [string, number, number, string, string][] = [
-    ['潮音药房', 9, 17.98, '#0a2a1a', '#7affb0'],
-    ['老周面馆', 24, 17.98, '#2a0a0a', '#ff7060'],
-    ['旅社', 18, 30.02, '#1a0a2a', '#d0a0ff'],
-    ['典当行', 44, 30.02, '#2a1a0a', '#ffc070'],
+    // just in front of the facades (they sat 2 cm inside them, hidden)
+    ['潮音药房', 9, 18.02, '#0a2a1a', '#7affb0'],
+    ['老周面馆', 24, 18.02, '#2a0a0a', '#ff7060'],
+    ['旅社', 18, 29.98, '#1a0a2a', '#d0a0ff'],
+    ['典当行', 44, 29.98, '#2a1a0a', '#ffc070'],
   ];
   for (const [txt, x, z, bg, fg] of neon) {
     const north = z < 20;
@@ -157,7 +160,7 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   (pole.head.material as THREE.MeshBasicMaterial).color.set(0x222222);
 
   // ---------------- convenience store ----------------
-  L.place(P.sign('24h 便利', 2.6, 0.6, '#0a1a2a', '#8ad0ff', 1.4), V(35.5, 2.9, 17.98), 0, { collide: false, keep: true });
+  L.place(P.sign('24h 便利', 2.6, 0.6, '#0a1a2a', '#8ad0ff', 1.4), V(35.5, 2.9, 18.02), 0, { collide: false, keep: true });
   L.light(V(35.5, 2.7, 18.8), 0x8ad0ff, 8, 7, 'flicker');
   for (const x of [32.5, 39.5]) ctx.props.addPane(V(x, 1.8, 17.5), 2.95, 1.78, 'x');
   L.doorsAt('G', { kind: 'glass' });
@@ -198,18 +201,19 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   for (const [x, z] of [[31, 5.5], [44, 8.2], [48, 5.4]] as [number, number][]) L.place(P.bin(), V(x, 0, z), 0, { dynamic: { mass: 10, surface: 'metal' } });
   L.place(P.crate(0.8), V(36, 0, 5.5), 0.2, { dynamic: { mass: 20, breakable: { hp: 40, kind: 'wood', onBreak: () => loot(L, 'ammo9', 6, V(36, 0.05, 5.6)) } } });
   L.light(V(33, 2.6, 8.6), 0xffd090, 5, 6, 'flicker');
-  L.place(P.pipe(18, 0.12), V(40, 3.2, 4.85), 0, { collide: false });
-  L.decal('hand', V(42.98, 1.4, 6.4), V(-1, 0, 0), 0.5);
+  L.place(P.pipe(18, 0.12), V(40, 3.2, 5.14), 0, { collide: false });
+  L.decal('hand', V(43.5, 1.4, 8.98), V(0, 0, -1), 0.5);
 
   // ---------------- side street & station plaza ----------------
-  L.place(P.bus(true), V(51.5, 0, 13.6), Math.PI / 2 + 0.12);
-  const fire2 = V(51.5, 2.8, 13.6);
+  // the burning bus jams the side street lengthwise (crosswise, 10 m of it ran through both facades)
+  L.place(P.bus(true), V(52, 0, 12.85), 0.12);
+  const fire2 = V(52, 2.8, 12.85);
   L.light(fire2, 0xff6a20, 44, 18, 'fire');
   L.ambient('fire', fire2, 0.8, 3);
-  L.place(P.barricade(3.5), V(51.5, 0, 16.6), 0);
-  L.place(P.car(0x1b1e24), V(52.8, 0, 9.5), Math.PI / 2 + 0.06);
-  corpse(L, V(51.2, 0, 4.4), 1.2, 0x1e2a3e);
-  loot(L, 'ammo9', 8, V(50.6, 0.05, 10.8), 'ch1:ammo4');
+  L.place(P.barricade(3.5), V(52, 0, 18.75), 0);
+  L.place(P.car(0x1b1e24), V(51, 0, 21.6), 0.3);
+  corpse(L, V(51.2, 0, 3.4), 1.2, 0x1e2a3e);
+  loot(L, 'ammo9', 8, V(52.3, 0.05, 5.6), 'ch1:ammo4');
   // police station gate + sign
   const gate = new THREE.Group();
   const iron = stdMat({ color: 0x1a1c1e, roughness: 0.5, metalness: 0.7 });
@@ -222,7 +226,7 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   bar.position.y = 2.2;
   gate.add(bar);
   L.place({ g: gate, cols: [{ c: V(0, 1.2, 0), h: V(2.8, 1.2, 0.05) }] }, V(50.5, 0.12, 1.2), 0);
-  L.place(P.sign('雾港市公安局 · 西港分局', 4.2, 0.6, '#0e1a2e', '#e6ecf4', 0.8), V(50.5, 3.6, 0.98), 0, { collide: false, keep: true });
+  L.place(P.sign('雾港市公安局 · 西港分局', 4.2, 0.6, '#0e1a2e', '#e6ecf4', 0.8), V(50.5, 3.6, 1.02), 0, { collide: false, keep: true });
   L.light(V(50.5, 4.5, 2.4), 0xdfe8ff, 30, 14, 'steady');
   L.light(V(45, 2, 3), 0xff2020, 14, 10, 'beacon');
 
@@ -236,8 +240,8 @@ export function buildCh1(cp: string, o: BuildOpts): ChapterRun {
   enemy('infected', V(48, 0, 21.5), { id: 'ch1:e6', state: 'idle', yaw: 3 });
   enemy('infected', V(33.2, 0, 13.3), { id: 'ch1:e7', state: 'idle', yaw: 0.6 });
   enemy('infected', V(40.5, 0, 16.3), { id: 'ch1:e8', state: 'dormant', yaw: -1.5, wakeDist: 2.4 });
-  enemy('infected', V(51.5, 0, 8), { id: 'ch1:e9', state: 'idle', yaw: 0 });
-  enemy('infected', V(51.6, 0.12, 3.7), { id: 'ch1:e10', state: 'feed', yaw: 1.8 });
+  enemy('infected', V(51.5, 0, 6.6), { id: 'ch1:e9', state: 'idle', yaw: 0 });
+  enemy('infected', V(51.6, 0.12, 2.7), { id: 'ch1:e10', state: 'feed', yaw: 1.8 });
 
   // ---------------- script ----------------
   const plaza = V(50.5, 0, 2.8);

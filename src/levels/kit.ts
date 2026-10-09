@@ -96,7 +96,7 @@ export function savePoint(L: Level, pos: THREE.Vector3, rot: number, id: string)
 }
 
 /** Wall-mounted blood trail / handprint helpers. */
-export function bloodTrail(L: Level, from: THREE.Vector3, to: THREE.Vector3, y = 0.01) {
+export function bloodTrail(L: Level, from: THREE.Vector3, to: THREE.Vector3, y = 0) {
   const d = to.clone().sub(from);
   const len = d.length();
   const n = Math.max(1, Math.round(len / 1));
@@ -148,9 +148,11 @@ export function compose(w: number, h: number, fill: string, ops: ([string, numbe
   return g.map((r) => r.join(''));
 }
 
-/** A static dead body lying on the floor. */
+/** A static dead body lying on the floor (y = 0: whatever floor that cell has). */
 export function corpse(L: Level, pos: THREE.Vector3, rot: number, tint = 0x2a3040, blood = true) {
+  if (pos.y === 0) pos = pos.clone().setY(L.floorY(pos.x, pos.z));
   const g = new THREE.Group();
+  g.name = 'corpse';
   const cloth = stdMat({ map: TEX.cloth(), color: tint, roughness: 1 });
   const pants = stdMat({ map: TEX.cloth(), color: 0x1e2228, roughness: 1 });
   bx(g, 0.4, 0.2, 0.7, cloth, 0, 0.1, 0);
@@ -159,8 +161,8 @@ export function corpse(L: Level, pos: THREE.Vector3, rot: number, tint = 0x2a304
   bx(g, 0.14, 0.14, 0.8, pants, 0.12, 0.07, -0.74, -0.15);
   bx(g, 0.1, 0.1, 0.55, cloth, 0.32, 0.06, 0.2, -0.9);
   bx(g, 0.1, 0.1, 0.55, cloth, -0.3, 0.06, 0.3, 0.6);
-  L.place({ g, cols: [] }, pos.clone().setY(pos.y), rot, { collide: false });
-  if (blood) L.decal('blood', pos.clone().setY(pos.y + 0.01), V(0, 1, 0), 1.8 + Math.random());
+  L.place({ g, cols: [] }, pos, rot, { collide: false });
+  if (blood) L.decal('blood', pos, V(0, 1, 0), 1.8 + Math.random());
   return g;
 }
 
