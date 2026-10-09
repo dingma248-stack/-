@@ -210,7 +210,7 @@ export class Game {
 
   /** Chapter-select entry: fresh state, chapter supplies a fair loadout. */
   selectChapter(id: string, diff: Difficulty = 'normal') {
-    this.stats = emptyStats();
+    this.stats = { ...emptyStats(), partial: id !== 'prologue' };
     this.killed.clear();
     ctx.inventory.reset();
     ctx.weapons.reset();
@@ -490,9 +490,12 @@ export class Game {
     if (!prog.endings.includes(endingId)) prog.endings.push(endingId);
     prog.cleared = true;
     for (const c of CHAPTERS) if (!prog.chapters.includes(c.id)) prog.chapters.push(c.id);
-    if (!prog.bestTime || s.time < prog.bestTime) prog.bestTime = s.time;
+    // a run started from chapter select is not a full clear: it doesn't set the records
     const order = ['C', 'B', 'A', 'S'];
-    if (!prog.bestRank || order.indexOf(rank) > order.indexOf(prog.bestRank)) prog.bestRank = rank;
+    if (!s.partial) {
+      if (!prog.bestTime || s.time < prog.bestTime) prog.bestTime = s.time;
+      if (!prog.bestRank || order.indexOf(rank) > order.indexOf(prog.bestRank)) prog.bestRank = rank;
+    }
     writeProgress(prog);
     ctx.music.only({ theme: 0.8 }, 3);
     ctx.ui.showEnding({ id: endingId, title: text.title, en: text.en, text: text.body, stats: s, rank, unlock });
